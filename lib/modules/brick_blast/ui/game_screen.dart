@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import '../../../app_shell/feature_flags.dart';
 import '../../../capabilities/analytics/noop_analytics_service.dart';
 import '../../../capabilities/storage/local_storage_service.dart';
 import '../data/game_tuning.dart';
@@ -416,10 +417,11 @@ class _BrickBlastGameScreenState extends State<BrickBlastGameScreen>
       case _PauseAction.close:
         return;
       case _PauseAction.restart:
-        _controller.restart();
+        _controller.restartLevelFromCheckpoint();
         _currentLevelStartScore = 0;
         _trackedLevelForBaseline = _controller.state.levelProgress.levelIndex;
         _didHydrateInitialBaseline = false;
+        return;
       case _PauseAction.home:
         _goHome();
     }
@@ -449,103 +451,130 @@ class _BrickBlastGameScreenState extends State<BrickBlastGameScreen>
   Widget build(BuildContext context) {
     final state = _controller.state;
 
-    return Scaffold(
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isCompact = constraints.maxWidth < 430;
-            final horizontalPadding = isCompact ? 10.0 : 14.0;
-            final topPadding = isCompact ? 8.0 : 11.0;
-            final hudInnerPadding = isCompact ? 9.0 : 12.0;
-            final scoreValueSize = isCompact ? 18.0 : 24.0;
-            final metricLabelSize = isCompact ? 10.0 : 12.0;
-            final boardMaxWidth = isCompact ? 560.0 : 680.0;
+    return PopScope<void>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) {
+          return;
+        }
+        if (!_isPausedOverlayOpen) {
+          unawaited(_openPauseModal());
+        }
+      },
+      child: Scaffold(
+        body: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isCompact = constraints.maxWidth < 430;
+              final horizontalPadding = isCompact ? 10.0 : 14.0;
+              final topPadding = isCompact ? 8.0 : 11.0;
+              final hudInnerPadding = isCompact ? 9.0 : 12.0;
+              final scoreValueSize = isCompact ? 18.0 : 24.0;
+              final metricLabelSize = isCompact ? 10.0 : 12.0;
+              final boardMaxWidth = isCompact ? 560.0 : 680.0;
 
-            return Padding(
-              padding: EdgeInsets.fromLTRB(
-                horizontalPadding,
-                topPadding,
-                horizontalPadding,
-                12,
-              ),
-              child: Column(
-                children: [
-                  _GameHud(
-                    score: _formatScore(state.score),
-                    wave:
-                        '${state.levelProgress.wavesSpawned}/${state.levelProgress.wavesTotal}',
-                    level: state.levelProgress.levelIndex,
-                    scoreValueSize: scoreValueSize,
-                    metricLabelSize: metricLabelSize,
-                    innerPadding: hudInnerPadding,
-                    onSettingsTap: _openPauseModal,
-                  ),
-                  const SizedBox(height: 8),
-                  Expanded(
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(maxWidth: boardMaxWidth),
-                        child: Stack(
-                          children: [
-                            Positioned.fill(
-                              child: ShooterBoard(
-                                state: state,
-                                onPointerDown:
-                                    state.isInputLocked || _isPausedOverlayOpen
-                                    ? (_) {}
-                                    : _controller.onPointerDown,
-                                onPointerMove:
-                                    state.isInputLocked || _isPausedOverlayOpen
-                                    ? (_) {}
-                                    : _controller.onPointerMove,
-                                onPointerUp:
-                                    state.phase == GamePhase.aiming &&
-                                        !_isPausedOverlayOpen
-                                    ? _controller.onPointerUp
-                                    : () {},
+              return Padding(
+                padding: EdgeInsets.fromLTRB(
+                  horizontalPadding,
+                  topPadding,
+                  horizontalPadding,
+                  12,
+                ),
+                child: Column(
+                  children: [
+                    _GameHud(
+                      score: _formatScore(state.score),
+                      wave:
+                          '${state.levelProgress.wavesSpawned}/${state.levelProgress.wavesTotal}',
+                      level: state.levelProgress.levelIndex,
+                      scoreValueSize: scoreValueSize,
+                      metricLabelSize: metricLabelSize,
+                      innerPadding: hudInnerPadding,
+                      onSettingsTap: _openPauseModal,
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: boardMaxWidth),
+                          child: Stack(
+                            children: [
+                              Positioned.fill(
+                                child: ShooterBoard(
+                                  state: state,
+                                  onPointerDown:
+                                      state.isInputLocked ||
+                                          _isPausedOverlayOpen
+                                      ? (_) {}
+                                      : _controller.onPointerDown,
+                                  onPointerMove:
+                                      state.isInputLocked ||
+                                          _isPausedOverlayOpen
+                                      ? (_) {}
+                                      : _controller.onPointerMove,
+                                  onPointerUp:
+                                      state.phase == GamePhase.aiming &&
+                                          !_isPausedOverlayOpen
+                                      ? _controller.onPointerUp
+                                      : () {},
+                                ),
                               ),
-                            ),
-                            if (_showFinalWaveBanner)
-                              Positioned(
-                                top: 14,
-                                left: 0,
-                                right: 0,
-                                child: Center(
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFFBBF24),
-                                      borderRadius: BorderRadius.circular(999),
-                                      boxShadow: const [
-                                        BoxShadow(
-                                          color: Color(0x66FBBF24),
-                                          blurRadius: 10,
+                              if (_showFinalWaveBanner)
+                                Positioned(
+                                  top: 14,
+                                  left: 0,
+                                  right: 0,
+                                  child: Center(
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 8,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFBBF24),
+                                        borderRadius: BorderRadius.circular(
+                                          999,
                                         ),
-                                      ],
-                                    ),
-                                    child: const Text(
-                                      'FINAL WAVE!',
-                                      style: TextStyle(
-                                        color: Color(0xFF0F172A),
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: 0.6,
+                                        boxShadow: const [
+                                          BoxShadow(
+                                            color: Color(0x66FBBF24),
+                                            blurRadius: 10,
+                                          ),
+                                        ],
+                                      ),
+                                      child: const Text(
+                                        'FINAL WAVE!',
+                                        style: TextStyle(
+                                          color: Color(0xFF0F172A),
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 0.6,
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
-                              ),
-                          ],
+                              if (FeatureFlags.brickBlastRecallEnabled &&
+                                  state.recallButtonVisible &&
+                                  !_isPausedOverlayOpen &&
+                                  !state.pendingLevelUpDialog &&
+                                  !state.shouldShowGameOverDialog)
+                                Positioned(
+                                  left: GameTuning.recallButtonLeftInset,
+                                  bottom: GameTuning.recallButtonBottomInset,
+                                  child: _RecallButton(
+                                    onTap: _controller.triggerRecall,
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            );
-          },
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
@@ -825,6 +854,57 @@ class _ProjectileStyleCard extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RecallButton extends StatelessWidget {
+  const _RecallButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      key: const Key('recall-button'),
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: SizedBox(
+        width: 44,
+        height: 44,
+        child: Center(
+          child: Container(
+            width: 31.2,
+            height: 31.2,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF10344B), Color(0xFF0A2236)],
+              ),
+              border: Border.all(color: const Color(0xFF22D3EE), width: 1.3),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0xAA22D3EE),
+                  blurRadius: 16,
+                  spreadRadius: 2,
+                ),
+                BoxShadow(
+                  color: Color(0x5522D3EE),
+                  blurRadius: 28,
+                  spreadRadius: 3,
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.offline_bolt_rounded,
+              color: Color(0xFF67E8F9),
+              size: 14.4,
+            ),
           ),
         ),
       ),

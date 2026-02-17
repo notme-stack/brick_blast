@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:brick_blast/app_shell/feature_flags.dart';
 import 'package:brick_blast/capabilities/analytics/noop_analytics_service.dart';
 import 'package:brick_blast/capabilities/storage/local_storage_service.dart';
 import 'package:brick_blast/modules/brick_blast/data/brick_row_generator.dart';
@@ -16,6 +17,7 @@ import 'package:brick_blast/modules/brick_blast/models/game_state.dart';
 void main() {
   setUp(() {
     LocalStorageService.clear();
+    FeatureFlags.setBrickBlastRecallEnabledOverride(null);
   });
 
   test('initial state prefills 4 rows and starts at wave 4', () {
@@ -208,6 +210,115 @@ void main() {
     expect(controller.state.levelProgress.levelIndex, 4);
     expect(controller.state.ballCount, 37);
     expect(controller.state.levelEntryBallCount, 37);
+  });
+
+  test(
+    'restartLevelFromCheckpoint keeps current level and avoids level-1 reset',
+    () {
+      final controller = GameController(
+        storageService: LocalStorageService(),
+        analyticsService: NoopAnalyticsService(),
+        engine: _FakeSimulationEngine(
+          nextStateBuilder: (state) => state.copyWith(
+            levelProgress: state.levelProgress.copyWith(levelIndex: 4),
+            levelEntryBallCount: 33,
+            ballCount: 51,
+            score: 420,
+          ),
+        ),
+      );
+
+      controller.tick(1 / 60);
+      controller.restartLevelFromCheckpoint();
+
+      expect(controller.state.levelProgress.levelIndex, 4);
+      expect(controller.state.ballCount, 33);
+      expect(controller.state.score, 0);
+    },
+  );
+
+  test('triggerRecall sets recall mode and cancels queue when eligible', () {
+    final controller = GameController(
+      storageService: LocalStorageService(),
+      analyticsService: NoopAnalyticsService(),
+      engine: _FakeSimulationEngine(
+        nextStateBuilder: (state) => state.copyWith(
+          phase: GamePhase.busy,
+          nextLauncherX: 0.42,
+          ballsToFire: 5,
+          isInputLocked: false,
+        ),
+      ),
+    );
+
+    controller.tick(1 / 60);
+    controller.triggerRecall();
+
+    expect(controller.state.isRecalling, true);
+    expect(controller.state.ballsToFire, 0);
+    expect(controller.state.recallButtonVisible, false);
+    expect(controller.state.phase, GamePhase.busy);
+    expect(controller.state.isInputLocked, true);
+  });
+
+  test('triggerRecall is no-op when feature flag is off', () {
+    FeatureFlags.setBrickBlastRecallEnabledOverride(false);
+    final controller = GameController(
+      storageService: LocalStorageService(),
+      analyticsService: NoopAnalyticsService(),
+      engine: _FakeSimulationEngine(
+        nextStateBuilder: (state) => state.copyWith(
+          phase: GamePhase.busy,
+          nextLauncherX: 0.4,
+          ballsToFire: 4,
+        ),
+      ),
+    );
+
+    controller.tick(1 / 60);
+    controller.triggerRecall();
+
+    expect(controller.state.isRecalling, false);
+    expect(controller.state.ballsToFire, 4);
+  });
+
+  test('triggerRecall is no-op without anchor', () {
+    final controller = GameController(
+      storageService: LocalStorageService(),
+      analyticsService: NoopAnalyticsService(),
+      engine: _FakeSimulationEngine(
+        nextStateBuilder: (state) => state.copyWith(
+          phase: GamePhase.busy,
+          clearNextLauncherX: true,
+          ballsToFire: 4,
+        ),
+      ),
+    );
+
+    controller.tick(1 / 60);
+    controller.triggerRecall();
+
+    expect(controller.state.isRecalling, false);
+    expect(controller.state.ballsToFire, 4);
+  });
+
+  test('tick caps catch-up simulation steps on large frame delta', () {
+    var tickCalls = 0;
+    final controller = GameController(
+      storageService: LocalStorageService(),
+      analyticsService: NoopAnalyticsService(),
+      engine: _FakeSimulationEngine(
+        nextStateBuilder: (state) {
+          tickCalls++;
+          return state.copyWith(score: state.score + 1);
+        },
+      ),
+    );
+
+    controller.tick(5.0);
+
+    expect(tickCalls, lessThanOrEqualTo(30));
+    expect(tickCalls, greaterThan(0));
   });
 }
 

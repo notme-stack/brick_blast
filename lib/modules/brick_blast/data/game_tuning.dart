@@ -32,6 +32,10 @@ class GameTuning {
   static const double maxBallFlightSeconds = 12.0;
   static const double minVerticalSpeedAfterTopBounce = 0.22;
   static const double minBallVelocityMagnitude = 0.16;
+  static const double recallHomingSpeed = 2.4;
+  static const double recallSnapEpsilon = 0.003;
+  static const double recallButtonBottomInset = 18;
+  static const double recallButtonLeftInset = 14;
   static const double turnSpeedGrowthMultiplier = 1.07;
   static const double maxLaunchSpeedMultiplier = 2.0;
   static const int finalWaveBannerDurationMs = 1400;

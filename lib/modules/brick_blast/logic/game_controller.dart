@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../../../app_shell/feature_flags.dart';
 import '../../../capabilities/analytics/analytics_service.dart';
 import '../../../capabilities/storage/local_storage_service.dart';
 import '../data/brick_row_generator.dart';
@@ -59,6 +60,8 @@ class GameController extends ChangeNotifier {
   double _accumulator = 0;
 
   static const double _fixedStep = 1 / 120;
+  static const int _maxFixedStepsPerTick = 30;
+  static const double _maxDeltaSecondsPerTick = 0.25;
   static const String bestScoreKey = 'brick_blast_best_score';
   static const String highestLevelKey = 'brick_blast_highest_level';
   static const String totalCoinsKey = 'brick_blast_total_coins';
@@ -270,8 +273,32 @@ class GameController extends ChangeNotifier {
     _updateState(_engine.releaseFire(_state));
   }
 
+  void triggerRecall() {
+    if (!FeatureFlags.brickBlastRecallEnabled) {
+      return;
+    }
+    if (_state.isRecalling) {
+      return;
+    }
+    if (_state.phase != GamePhase.firing && _state.phase != GamePhase.busy) {
+      return;
+    }
+    if (_state.nextLauncherX == null) {
+      return;
+    }
+    _state = _state.copyWith(
+      isRecalling: true,
+      ballsToFire: 0,
+      phase: GamePhase.busy,
+      recallButtonVisible: false,
+      isInputLocked: true,
+    );
+    notifyListeners();
+  }
+
   void tick(double deltaSeconds) {
-    _accumulator += deltaSeconds;
+    final boundedDelta = deltaSeconds.clamp(0, _maxDeltaSecondsPerTick);
+    _accumulator += boundedDelta;
     var stateChanged = false;
     var previousTurn = _state.turnIndex;
     var previouslyGameOver = _state.phase == GamePhase.gameOver;
@@ -280,13 +307,21 @@ class GameController extends ChangeNotifier {
     var previousLevel = _state.levelProgress.levelIndex;
     var previousPendingLevelUp = _state.pendingLevelUpDialog;
 
-    while (_accumulator >= _fixedStep) {
+    var simulatedSteps = 0;
+    while (_accumulator >= _fixedStep &&
+        simulatedSteps < _maxFixedStepsPerTick) {
       _accumulator -= _fixedStep;
       final updated = _engine.tick(_state, _fixedStep);
       if (!identical(updated, _state)) {
         _state = _updateBestScore(updated);
         stateChanged = true;
       }
+      simulatedSteps++;
+    }
+
+    if (_accumulator >= _fixedStep) {
+      // Drop stale backlog to avoid long catch-up stalls after frame hiccups.
+      _accumulator = 0;
     }
 
     if (!stateChanged) {
@@ -329,6 +364,7 @@ class GameController extends ChangeNotifier {
   }
 
   void restart() {
+    // TODO(D-033 follow-up): expose this as explicit "Reset Run" UX action.
     _accumulator = 0;
     _state = _buildInitialState().copyWith(
       bestScore: _state.bestScore,
@@ -338,11 +374,17 @@ class GameController extends ChangeNotifier {
       coinsPaidBucketsInRun: 0,
       coinsEarnedThisLevel: 0,
       launchSpeedMultiplier: 1.0,
+      isRecalling: false,
+      recallButtonVisible: false,
     );
     _logGameStart();
     _logLevelStart();
     _clearRunSnapshot();
     notifyListeners();
+  }
+
+  void restartLevelFromCheckpoint() {
+    retryCurrentLevel();
   }
 
   void retryCurrentLevel() {
@@ -390,6 +432,8 @@ class GameController extends ChangeNotifier {
       ballCapForLevel: retryBallCap,
       overflowBallsLastClear: 0,
       coinsFromOverflowLastClear: 0,
+      isRecalling: false,
+      recallButtonVisible: false,
     );
 
     _logGameStart();
@@ -463,6 +507,8 @@ class GameController extends ChangeNotifier {
       ballCount: carryBallCount,
       levelEntryBallCount: carryBallCount,
       ballCapForLevel: nextBallCap,
+      isRecalling: false,
+      recallButtonVisible: false,
     );
 
     _persistHighestLevel(_state.highestLevelReached);
@@ -672,6 +718,8 @@ class GameController extends ChangeNotifier {
       ballCapForLevel: ballCap,
       overflowBallsLastClear: 0,
       coinsFromOverflowLastClear: 0,
+      isRecalling: false,
+      recallButtonVisible: false,
     );
   }
 }

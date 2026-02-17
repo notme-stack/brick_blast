@@ -1350,3 +1350,208 @@ Implementation Details
 - Validation outcomes:
   - manual review for structure completeness against requested taxonomy
   - root placement verified for discoverability
+
+## Decision D-033: Pause Restart Uses Level Checkpoint Retry (Full Run Reset Deferred)
+Date: 2026-02-17
+Status: Accepted
+
+What it is?
+- Changed pause-menu `Restart Level` action to restart the current level via checkpoint retry semantics.
+- Kept full-run reset behavior available in controller, but deferred as a separate future UX action.
+
+Why?
+- Pause restart was incorrectly bound to full-run reset, sending players to Level 1.
+- This contradicted the checkpoint concept where restart should preserve current level context.
+
+How it helps?
+- Aligns user expectation: restarting from pause now retries the same level.
+- Prevents accidental run wipe when player intends only a level retry.
+- Preserves future flexibility by keeping explicit run reset logic separate.
+
+Details
+- Remap:
+  - from: pause restart -> `restart()`
+  - to: pause restart -> `restartLevelFromCheckpoint()` -> `retryCurrentLevel()`
+- Added explicit TODO marker to keep full run reset as a deferred enhancement path.
+- Game-over `Play Again` behavior remains unchanged and already aligned to retry semantics.
+
+Implementation Details
+- Files changed:
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/ui/game_screen.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/logic/game_controller.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/modules/brick_blast/ui/game_screen_test.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/modules/brick_blast/logic/game_controller_progression_test.dart`
+- Controller addition:
+  - `restartLevelFromCheckpoint()` wrapper delegates to `retryCurrentLevel()`
+- Deferred TODO:
+  - `restart()` annotated for future explicit `Reset Run` UX exposure
+- Validation outcomes:
+  - `dart format lib test` passed
+  - `flutter analyze` passed
+  - `flutter test` passed
+
+## Decision D-034: Game-Screen Back Gesture Opens Pause Modal (No Direct Route Pop)
+Date: 2026-02-17
+Status: Accepted
+
+What it is?
+- Intercepted Android back gesture/button on game screen so it opens the in-game `Paused` modal instead of popping to Home.
+- Route pop now occurs only via explicit `Home` action in the pause modal.
+
+Why?
+- Direct route pop from gameplay caused accidental exits and broke the intended in-game control flow.
+- The pause/settings modal already exists and is the correct first back action for game UX.
+
+How it helps?
+- Prevents unintentional navigation away from an active run.
+- Makes back behavior predictable and consistent with mobile game norms.
+- Keeps all exit/restart actions centralized in one modal.
+
+Details
+- Added root-level back interception with `PopScope(canPop: false)` in game screen.
+- On back:
+  - if pause modal is closed: open pause modal
+  - if pause modal is open: do nothing at screen layer (dialog handles its own close)
+- Re-entry is guarded by existing `_isPausedOverlayOpen` check in `_openPauseModal()`.
+
+Implementation Details
+- Files changed:
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/ui/game_screen.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/modules/brick_blast/ui/game_screen_test.dart`
+- Tests added/updated:
+  - `system back opens paused modal instead of popping route`
+  - `system back while paused keeps game route active`
+- Validation outcomes:
+  - pending run in this change set (`dart format lib test`, `flutter analyze`, `flutter test`)
+
+## Decision D-035: Visual Magnet Recall Behind Feature Flag + Feature Flag Registry Rule
+Date: 2026-02-17
+Status: Accepted
+
+What it is?
+- Added the Visual Magnet Recall mechanic to Brick Blast with a fixed bottom-left recall icon and anchor-based homing return behavior.
+- Gated the feature behind a typed app-level flag so it can be disabled without removing code.
+- Added a permanent feature-flag registry document and policy rule for future flag governance.
+
+Why?
+- Recall is a gameplay enhancement that needs controlled rollout and quick disable support.
+- The project previously lacked a dedicated source-of-truth for feature flags and maintenance rules.
+- We need predictable behavior across gameplay, testing, and release management when toggling features.
+
+How it helps?
+- Enables safe rollout/rollback via `--dart-define`.
+- Keeps gameplay deterministic when the flag is OFF (no UI or logic side-effects).
+- Standardizes how all future flags are tracked and documented.
+
+Details
+- Feature flag key: `BRICK_BLAST_RECALL_ENABLED`.
+- Default behavior: ON (`true`) when no define is provided.
+- OFF behavior: recall button hidden and recall trigger path is no-op.
+- Recall gameplay behavior when ON:
+  - recall button appears only after first landing anchor exists (`nextLauncherX`)
+  - fixed button location at bottom-left of arena
+  - recall allowed in `firing`/`busy`
+  - queued launches are canceled on trigger (`ballsToFire = 0`)
+  - ghost return mode disables scoring and collision processing during recall
+  - completion follows existing all-merged condition and immediate end-turn transition
+
+Implementation Details
+- Files touched:
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/app_shell/feature_flags.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/models/game_state.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/data/game_tuning.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/logic/game_controller.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/logic/simulation_engine.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/logic/turn_resolver.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/ui/game_screen.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/modules/brick_blast/logic/simulation_engine_test.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/modules/brick_blast/logic/game_controller_progression_test.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/modules/brick_blast/ui/game_screen_test.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/FEATURE_FLAGS.md`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/AGENTS.md`
+- Key code/logic changes:
+  - Added `FeatureFlags.brickBlastRecallEnabled` with `bool.fromEnvironment` source and testing override.
+  - Added `GameState.isRecalling` and `GameState.recallButtonVisible`.
+  - Added `GameController.triggerRecall()` with strict phase/anchor/flag gates.
+  - Added recall homing branch in simulation engine (`_recallBalls`) and anchor-driven CTA visibility updates.
+  - Added fixed bottom-left recall CTA widget on game screen.
+  - Cleared recall state in turn resolution and major controller transitions.
+  - Added global feature-flag documentation policy and registry file.
+- Validation:
+  - `dart format lib test` passed
+  - `flutter analyze` passed
+  - `flutter test` passed
+
+## Decision D-036: Recall CTA Size Reduction + Fixed-Step Catch-Up Guard for Long-Run Stability
+Date: 2026-02-17
+Status: Accepted
+
+What it is?
+- Reduced recall control visual size by 40% and increased cyan glow intensity for clearer futuristic styling.
+- Added simulation catch-up guardrails in `GameController.tick()` to prevent long-frame backlog stalls that can appear as hangs during very long play sessions.
+
+Why?
+- The recall button occupied too much visual space relative to the compact game HUD.
+- Unbounded fixed-step catch-up loops can cause frame stalls when `deltaSeconds` spikes, especially after long sessions or lifecycle interruptions.
+
+How it helps?
+- Keeps recall CTA compact while remaining discoverable through stronger glow.
+- Prevents freeze-like behavior by bounding per-frame simulation work and dropping stale backlog safely.
+- Improves run stability for extended sessions (e.g., 100-level play streaks).
+
+Details
+- Recall CTA visual changes:
+  - Outer interactive hit area kept touch-safe (`44x44`).
+  - Visible orb reduced from `52x52` to `31.2x31.2` (40% reduction).
+  - Icon reduced from `24` to `14.4` with dual glow shadows for stronger neon cue.
+- Fixed-step stability changes:
+  - Bounded incoming delta to `0.25s`.
+  - Limited per-tick simulation iterations to `30` fixed steps.
+  - Dropped remaining stale accumulator backlog when cap is reached.
+
+Implementation Details
+- Files touched:
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/ui/game_screen.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/logic/game_controller.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/modules/brick_blast/logic/game_controller_progression_test.dart`
+- Key code/logic changes:
+  - `_RecallButton` compacted visually with stronger glow while retaining 44px touch target.
+  - Added `_maxFixedStepsPerTick = 30` and `_maxDeltaSecondsPerTick = 0.25` in `GameController`.
+  - `tick()` now clamps delta, caps catch-up iterations, and clears stale accumulator backlog.
+  - Added regression test verifying large-delta tick does not exceed catch-up cap.
+- Validation:
+  - `dart format lib test` passed
+  - `flutter analyze` passed
+  - `flutter test` passed
+
+## Decision D-037: Recall Control Uses Icon-Only Tap Handling (No Square Ink Highlight)
+Date: 2026-02-17
+Status: Accepted
+
+What it is?
+- Removed the rectangular ink/highlight effect from the recall control so only the circular recall icon and glow are visible.
+
+Why?
+- The `InkWell` interaction layer rendered a square highlight artifact around the control, which conflicted with the intended icon-only futuristic visual.
+
+How it helps?
+- Aligns gameplay UI with the intended visual language: clean circular recall icon with glow only.
+- Eliminates distracting square flash/background near the danger line area.
+
+Details
+- Replaced `Material + InkWell + Ink` interaction stack for `_RecallButton` with icon-only tap handling using `GestureDetector`.
+- Preserved touch usability by keeping a `44x44` hit target.
+- Kept the existing circular icon/glow styling unchanged.
+- Scope intentionally limited to recall control only.
+
+Implementation Details
+- Files touched:
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/ui/game_screen.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/DECISION_LOG.md`
+- Key code/logic changes:
+  - `_RecallButton` now uses `GestureDetector(behavior: HitTestBehavior.opaque)`.
+  - Removed `InkWell`-driven highlight fill layer causing square artifact.
+- Validation:
+  - `dart format lib test` passed
+  - `flutter analyze` passed
+  - `flutter test` passed

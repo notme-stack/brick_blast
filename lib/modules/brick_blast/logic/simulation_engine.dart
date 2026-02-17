@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../../../app_shell/feature_flags.dart';
 import '../data/game_tuning.dart';
 import '../models/ball.dart';
 import '../models/brick.dart';
@@ -146,9 +147,14 @@ class SimulationEngine {
   }
 
   GameState _simulateBalls(GameState state, double dt) {
+    if (state.isRecalling) {
+      return _recallBalls(state, dt);
+    }
+
     var score = state.score;
     var nextLauncherX = state.nextLauncherX;
     var activeBallCount = state.activeBallCount;
+    var recallButtonVisible = state.recallButtonVisible;
     final floorY = GameTuning.launcherY;
 
     final subDt = dt / GameTuning.physicsSubsteps;
@@ -251,6 +257,12 @@ class SimulationEngine {
           nextLauncherX = floorX;
           merged = true;
           floorX = nextLauncherX;
+          if (FeatureFlags.brickBlastRecallEnabled &&
+              (state.phase == GamePhase.firing ||
+                  state.phase == GamePhase.busy) &&
+              !state.isRecalling) {
+            recallButtonVisible = true;
+          }
         }
 
         current = current.copyWith(
@@ -281,6 +293,63 @@ class SimulationEngine {
       score: score,
       nextLauncherX: nextLauncherX,
       activeBallCount: activeBallCount,
+      recallButtonVisible: recallButtonVisible,
+    );
+  }
+
+  GameState _recallBalls(GameState state, double dt) {
+    final targetX = state.nextLauncherX;
+    if (targetX == null) {
+      return state.copyWith(isRecalling: false, recallButtonVisible: false);
+    }
+
+    final target = Offset(targetX, GameTuning.launcherY);
+    final step = GameTuning.recallHomingSpeed * dt;
+    final balls = List<Ball>.from(state.balls);
+    var changed = false;
+
+    for (var i = 0; i < balls.length; i++) {
+      final ball = balls[i];
+      if (!ball.active) {
+        continue;
+      }
+
+      final toTarget = target - ball.position;
+      final distance = toTarget.distance;
+      if (distance <= GameTuning.recallSnapEpsilon || distance <= step) {
+        balls[i] = ball.copyWith(
+          position: target,
+          previousPosition: target,
+          velocity: Offset.zero,
+          active: false,
+          grounded: true,
+          merged: true,
+          flightTimeSeconds: 0,
+        );
+        changed = true;
+        continue;
+      }
+
+      final direction = toTarget / distance;
+      final nextPosition = ball.position + (direction * step);
+      balls[i] = ball.copyWith(
+        position: nextPosition,
+        previousPosition: ball.position,
+        velocity: Offset.zero,
+        flightTimeSeconds: 0,
+      );
+      changed = true;
+    }
+
+    if (!changed) {
+      return state.copyWith(recallButtonVisible: false);
+    }
+
+    final activeBallCount = balls.where((ball) => ball.active).length;
+    return state.copyWith(
+      balls: balls,
+      activeBallCount: activeBallCount,
+      recallButtonVisible: false,
     );
   }
 

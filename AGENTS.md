@@ -14,6 +14,13 @@
    - `Implementation Details`
 7. `Implementation Details` must include concrete file paths and key behavioral/logic changes where applicable.
 
+## Feature Flag Registry (Global Rule)
+
+1. Every new feature flag MUST be documented in `FEATURE_FLAGS.md`.
+2. `FEATURE_FLAGS.md` is the source of truth for active/retired flags.
+3. Flag updates MUST be append-only in the `Change Log` section.
+4. Any decision log entry that introduces or changes a feature flag MUST reference the matching `FEATURE_FLAGS.md` entry.
+
 ## Entry Format Rule
 
 Use this structure for each appended decision:

@@ -95,6 +95,8 @@ class TurnResolver {
         state.launchSpeedMultiplier * GameTuning.turnSpeedGrowthMultiplier,
         GameTuning.maxLaunchSpeedMultiplier,
       ),
+      isRecalling: false,
+      recallButtonVisible: false,
     );
   }
 }

@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:brick_blast/app_shell/feature_flags.dart';
 import 'package:brick_blast/modules/brick_blast/data/brick_row_generator.dart';
 import 'package:brick_blast/modules/brick_blast/data/game_tuning.dart';
 import 'package:brick_blast/modules/brick_blast/data/level_plan_builder.dart';
@@ -20,6 +21,7 @@ void main() {
   late SimulationEngine engine;
 
   setUp(() {
+    FeatureFlags.setBrickBlastRecallEnabledOverride(null);
     engine = SimulationEngine(
       turnResolver: TurnResolver(
         rowGenerator: BrickRowGenerator(random: Random(1)),
@@ -209,6 +211,65 @@ void main() {
     }
 
     expect(state.phase, GamePhase.idle);
+  });
+
+  test('recall button does not appear when feature flag is off', () {
+    FeatureFlags.setBrickBlastRecallEnabledOverride(false);
+    final ball = Ball(
+      id: 0,
+      position: const Offset(0.5, GameTuning.launcherY + 0.01),
+      previousPosition: const Offset(0.5, GameTuning.launcherY - 0.01),
+      velocity: const Offset(0, 0.5),
+      radius: GameTuning.ballRadius,
+      active: true,
+      grounded: false,
+      merged: false,
+      flightTimeSeconds: 0,
+    );
+    var state = _baseState(
+      phase: GamePhase.busy,
+      balls: [ball],
+      ballCount: 1,
+      activeBallCount: 1,
+      ballsToFire: 1,
+      bricks: const [],
+    );
+
+    state = engine.tick(state, 1 / 120);
+
+    expect(state.recallButtonVisible, false);
+  });
+
+  test('recall mode homes balls without scoring brick hits', () {
+    FeatureFlags.setBrickBlastRecallEnabledOverride(true);
+    final brick = const Brick(id: 1, row: 1, col: 3, hp: 20, colorTier: 0);
+    final ball = Ball(
+      id: 0,
+      position: const Offset(0.5, 0.3),
+      previousPosition: const Offset(0.5, 0.3),
+      velocity: const Offset(0, -0.5),
+      radius: GameTuning.ballRadius,
+      active: true,
+      grounded: false,
+      merged: false,
+      flightTimeSeconds: 0,
+    );
+    var state = _baseState(
+      phase: GamePhase.busy,
+      balls: [ball],
+      ballCount: 1,
+      activeBallCount: 1,
+      bricks: [brick],
+      ballsToFire: 0,
+      nextLauncherX: 0.5,
+    ).copyWith(isRecalling: true, recallButtonVisible: true);
+
+    state = engine.tick(state, 1 / 120);
+
+    expect(state.score, 0);
+    expect(state.bricks.length, 1);
+    expect(state.bricks.first.hp, 20);
+    expect(state.recallButtonVisible, false);
   });
 }
 

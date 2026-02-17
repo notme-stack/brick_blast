@@ -37,6 +37,8 @@ class GameState {
     this.ballCapForLevel = 30,
     this.overflowBallsLastClear = 0,
     this.coinsFromOverflowLastClear = 0,
+    this.isRecalling = false,
+    this.recallButtonVisible = false,
   });
 
   final GamePhase phase;
@@ -68,6 +70,8 @@ class GameState {
   final int ballCapForLevel;
   final int overflowBallsLastClear;
   final int coinsFromOverflowLastClear;
+  final bool isRecalling;
+  final bool recallButtonVisible;
 
   GameState copyWith({
     GamePhase? phase,
@@ -100,6 +104,8 @@ class GameState {
     int? ballCapForLevel,
     int? overflowBallsLastClear,
     int? coinsFromOverflowLastClear,
+    bool? isRecalling,
+    bool? recallButtonVisible,
   }) {
     return GameState(
       phase: phase ?? this.phase,
@@ -138,6 +144,8 @@ class GameState {
           overflowBallsLastClear ?? this.overflowBallsLastClear,
       coinsFromOverflowLastClear:
           coinsFromOverflowLastClear ?? this.coinsFromOverflowLastClear,
+      isRecalling: isRecalling ?? this.isRecalling,
+      recallButtonVisible: recallButtonVisible ?? this.recallButtonVisible,
     );
   }
 }
