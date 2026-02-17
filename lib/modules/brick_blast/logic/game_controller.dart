@@ -285,7 +285,46 @@ class GameController extends ChangeNotifier {
       highestLevelReached: _state.highestLevelReached,
       coinsPaidBucketsInRun: 0,
       coinsEarnedThisLevel: 0,
+      launchSpeedMultiplier: 1.0,
     );
+    _logGameStart();
+    _logLevelStart();
+    notifyListeners();
+  }
+
+  void retryCurrentLevel() {
+    final retryLevel = max(1, _state.levelProgress.levelIndex);
+    final progressSeed = _planBuilder.buildForLevel(retryLevel);
+    final prefill = _prefillLevel(progressSeed);
+    final retryBallCount = GameTuning.initialBallCount;
+
+    _accumulator = 0;
+    _state = _state.copyWith(
+      phase: GamePhase.idle,
+      balls: _freshBalls(0.5, count: retryBallCount),
+      ballsToFire: 0,
+      activeBallCount: 0,
+      clearNextLauncherX: true,
+      launcher: Launcher(x: 0.5, y: GameTuning.launcherY, aimAngle: -90),
+      bricks: prefill.bricks,
+      turnIndex: 1,
+      score: 0,
+      ballCount: retryBallCount,
+      isInputLocked: false,
+      lastUpdateMicros: 0,
+      fireTimer: 0,
+      shouldShowGameOverDialog: false,
+      levelProgress: prefill.progress,
+      damageMultiplier: _progressionService.damageMultiplier(prefill.progress),
+      wavePatternLast: prefill.wavePattern,
+      pendingLevelUpDialog: false,
+      coinsEarnedThisLevel: 0,
+      coinsPaidBucketsInRun: 0,
+      projectileStyle: _state.projectileStyle,
+      highestLevelReached: max(_state.highestLevelReached, retryLevel),
+      launchSpeedMultiplier: 1.0,
+    );
+
     _logGameStart();
     _logLevelStart();
     notifyListeners();
@@ -296,6 +335,22 @@ class GameController extends ChangeNotifier {
       return;
     }
     _state = _state.copyWith(shouldShowGameOverDialog: false);
+    notifyListeners();
+  }
+
+  void confirmLevelClearUnlock() {
+    if (!_state.pendingLevelUpDialog) {
+      return;
+    }
+
+    final unlockedNext = _state.levelProgress.levelIndex + 1;
+    final updatedHighest = max(_state.highestLevelReached, unlockedNext);
+    if (updatedHighest == _state.highestLevelReached) {
+      return;
+    }
+
+    _state = _state.copyWith(highestLevelReached: updatedHighest);
+    _persistHighestLevel(updatedHighest);
     notifyListeners();
   }
 
@@ -324,6 +379,7 @@ class GameController extends ChangeNotifier {
       coinsEarnedThisLevel: 0,
       projectileStyle: _state.projectileStyle,
       highestLevelReached: max(_state.highestLevelReached, nextLevelIndex),
+      launchSpeedMultiplier: 1.0,
     );
 
     _persistHighestLevel(_state.highestLevelReached);
@@ -478,6 +534,7 @@ class GameController extends ChangeNotifier {
       coinsEarnedThisLevel: 0,
       coinsPaidBucketsInRun: 0,
       highestLevelReached: 1,
+      launchSpeedMultiplier: 1.0,
     );
   }
 }

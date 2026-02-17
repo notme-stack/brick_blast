@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 import '../data/brick_row_generator.dart';
@@ -89,6 +91,10 @@ class TurnResolver {
       damageMultiplier: _progressionService.damageMultiplier(progress),
       wavePatternLast: wavePattern,
       pendingLevelUpDialog: progress.levelCompleted,
+      launchSpeedMultiplier: min(
+        state.launchSpeedMultiplier * GameTuning.turnSpeedGrowthMultiplier,
+        GameTuning.maxLaunchSpeedMultiplier,
+      ),
     );
   }
 }

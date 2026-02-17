@@ -10,9 +10,7 @@ void main() {
     LocalStorageService.clear();
   });
 
-  testWidgets('home screen shows total coins and current level', (
-    tester,
-  ) async {
+  testWidgets('home screen shows top stats and next level CTA', (tester) async {
     final storage = LocalStorageService();
     await storage.write(GameController.totalCoinsKey, 12);
     await storage.write(GameController.highestLevelKey, 4);
@@ -21,8 +19,16 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: BrickBlastHomeScreen()));
     await tester.pump();
 
-    expect(find.text('Total Coins: 12'), findsOneWidget);
-    expect(find.text('Current Level: 4'), findsOneWidget);
-    expect(find.text('Best Score: 760'), findsOneWidget);
+    expect(find.text('3'), findsOneWidget);
+    expect(find.text('12'), findsOneWidget);
+    expect(find.text('LEVEL'), findsNothing);
+    expect(find.text('BEST'), findsNothing);
+    expect(find.text('760'), findsNothing);
+    expect(find.text('NEXT LEVEL 4'), findsOneWidget);
+    expect(find.text('PLAY'), findsOneWidget);
+    expect(find.byIcon(Icons.star_rounded), findsOneWidget);
+    expect(find.byKey(const Key('home-diamond-mark')), findsOneWidget);
+    expect(find.byKey(const Key('home-top-stats-row')), findsOneWidget);
+    expect(find.byType(SingleChildScrollView), findsNothing);
   });
 }

@@ -523,3 +523,515 @@ Implementation Details
   - `dart format lib/modules/brick_blast/ui/game_screen.dart` passed.
   - `flutter analyze` passed.
   - `flutter test test/modules/brick_blast/ui/game_screen_test.dart` passed.
+
+## Decision D-016: Splash Auto-Route + Persistent First-Time Login Gate
+Date: 2026-02-16
+Status: Accepted
+
+What it is?
+- Implemented a production splash experience for Brick Blast Shooter with a 2.5-second animated loading phase and automatic first-time routing.
+- Added persistent `has_completed_login` gating so routing survives app relaunch.
+
+Why?
+- The prior splash and login flow was placeholder-only and required manual interaction.
+- In-memory storage reset every launch, so first-time detection could not be trusted.
+
+How it helps?
+- Delivers the intended flow: `Splash -> Login (first-time) -> Home`, and `Splash -> Home` for returning users.
+- Improves onboarding polish while keeping module routing and game systems unchanged.
+
+Details
+- Splash is now a responsive, cyber-themed screen with:
+  - centered brand visual (`assets/images/splash_logo.png`)
+  - stylized `BRICK / BLAST / SHOOTER` text stack
+  - animated loading rail and loading text
+- Splash duration is fixed to `2500ms` before route resolution.
+- Login continue action now persists completion flag before navigation.
+- Local storage service now supports persistent SharedPreferences-backed read/write while preserving existing API shape used across the module.
+
+Implementation Details
+- Files changed:
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/pubspec.yaml`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/pubspec.lock`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/capabilities/storage/local_storage_service.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/main.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/screens/splash_screen.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/screens/login_screen.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/widget_test.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/app_flow_test.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/capabilities/storage/local_storage_service_test.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/macos/Flutter/GeneratedPluginRegistrant.swift`
+- Storage key added:
+  - `has_completed_login`
+- Routing rule implemented:
+  - after `2.5s`: `has_completed_login == true` -> `/brick-blast`; else -> `/login`
+- Validation command outcomes:
+  - `dart format lib test` passed
+  - `flutter pub get` passed
+  - `flutter analyze` passed (no issues)
+  - `flutter test` passed (all tests)
+  - `flutter run -d emulator-5554` built, installed, and synced successfully
+
+## Decision D-017: Pixel-Close Responsive Login Screen Enablement
+Date: 2026-02-16
+Status: Accepted
+
+What it is?
+- Replaced the placeholder login page with a production-style, pixel-close cyber login screen aligned to the provided reference.
+- Preserved guest-only auth flow while upgrading UI to responsive, device-adaptive layout behavior.
+
+Why?
+- The previous login screen was a scaffold (`AppBar` + single button) and did not match the target product quality.
+- Login is a core part of the locked flow (`Splash -> Login -> Home -> Game -> Result`) and needed consistent visual language with splash/game screens.
+
+How it helps?
+- Delivers a branded and polished onboarding step with clear CTA hierarchy.
+- Keeps UX and routing behavior intact while improving visual quality and responsiveness across compact and large screens.
+
+Details
+- Implemented full-screen dark cyber layout with ambient background elements (blurred glass shapes, arc lines, glow accents).
+- Added centered brand stack: logo orb + `BRICK`, glowing `BLAST`, and pill-style `SHOOTER` label.
+- Added primary CTA panel: `CONTINUE AS GUEST` with circular arrow affordance.
+- Added footer metadata text: `v3.0.1 • No account required`.
+- Added height-aware responsive scaling to avoid overflow/click misses on shorter viewports and tests.
+- Kept behavior unchanged:
+  - tapping CTA persists `has_completed_login = true`
+  - navigates with `pushReplacementNamed` to `/brick-blast`
+
+Implementation Details
+- Files changed:
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/screens/login_screen.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/app_flow_test.dart`
+- Compatibility updates:
+  - flow test assertions updated from old `Login` app bar to new login branding/CTA.
+  - test now ensures CTA is visible before tap to handle small-height test viewports.
+- Validation command outcomes:
+  - `dart format lib/screens/login_screen.dart test/app_flow_test.dart` passed
+  - `flutter analyze` passed (no issues)
+  - `flutter test` passed (full suite)
+  - `flutter run -d emulator-5554` launched, installed, synced successfully and detached cleanly
+
+## Decision D-018: Home Screen HUD Upgrade + Next-Level Play CTA
+Date: 2026-02-16
+Status: Accepted
+
+What it is?
+- Replaced the Brick Blast module home screen with a production-ready, pixel-close cyber UI aligned to the provided design.
+- Added top stat pills for completed levels, total coins, and best score.
+- Added `NEXT LEVEL <n>` label above the play CTA and kept play flow targeting the next unlocked level.
+
+Why?
+- The previous home screen was a placeholder card layout and did not match the visual quality bar established for splash/login/game.
+- Core progression stats needed to be surfaced at the top exactly as requested.
+- The primary action needed to explicitly communicate next-level progression.
+
+How it helps?
+- Creates a consistent branded flow across `Splash -> Login -> Home -> Game`.
+- Improves at-a-glance understanding of progression and economy.
+- Keeps session continuity by launching gameplay at the next unlocked level from persisted progress.
+
+Details
+- Top row now shows:
+  - `LEVEL` = levels completed so far (`max(0, nextLevel - 1)`)
+  - total coins (formatted with commas)
+  - `BEST` score
+- Main action area now shows:
+  - `NEXT LEVEL <n>` in the same light grey used for `SHOOTER`
+  - large gradient `PLAY` button
+- Gameplay entry behavior remains compatible with existing logic:
+  - home reads `brick_blast_highest_level` as the next unlocked level
+  - tapping play opens game route where controller starts from persisted unlocked level
+- Responsive behavior added:
+  - width compact mode + height scaling
+  - centered constrained content and scroll safety for shorter viewports
+
+Implementation Details
+- Files changed:
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/ui/home_screen.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/modules/brick_blast/ui/home_screen_test.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/app_flow_test.dart`
+- Test updates:
+  - home widget test now validates top stat labels/values and `NEXT LEVEL` + `PLAY` CTA
+  - app flow test updated to assert new home UI and taps `PLAY`
+  - added `ensureVisible` guards for compact test viewport interactions
+- Validation command outcomes:
+  - `dart format lib/modules/brick_blast/ui/home_screen.dart test/modules/brick_blast/ui/home_screen_test.dart` passed
+  - `flutter analyze` passed (no issues)
+  - `flutter test` passed (full suite)
+  - `flutter run -d emulator-5554` launched and synced successfully; session detached cleanly
+
+## Decision D-019: Home Screen Rebuild (Non-Scrollable, Flutter-Drawn Icon, Pixel-Close Layout)
+Date: 2026-02-16
+Status: Accepted
+
+What it is?
+- Rebuilt the Brick Blast home screen to match the latest `home.png` reference with a fixed, non-scroll composition.
+- Replaced asset-based center branding with a Flutter-drawn icon (`_HomeDiamondMark`) made from four rounded diamond tiles and glow layers.
+
+Why?
+- Previous home implementation was visually off-target, scroll-based, and reused the shared logo asset against the latest requirement.
+- The home screen is a core flow step and needed production-level visual fidelity and deterministic layout behavior.
+
+How it helps?
+- Delivers a stable, pixel-close home UI that aligns with the target visual language.
+- Ensures a consistent responsive layout across compact and regular devices without vertical scrolling.
+- Keeps gameplay continuity intact while presenting progression data clearly.
+
+Details
+- Locked UI behavior implemented:
+  - no `SingleChildScrollView` in home layout
+  - top stat pills (`LEVEL`, coins, `BEST`)
+  - centered `BRICK BLAST` + `SHOOTER`
+  - `NEXT LEVEL <n>` above large `PLAY` CTA
+- Center icon is now pure Flutter composition only (no `Image.asset` use in home screen).
+- Responsive strategy:
+  - deterministic size classes by height (`compact`, `regular`, `tall`)
+  - additional width/height scale clamp to avoid overflow
+  - tightened stat pill typography/min-height to fit compact constraints
+- Play behavior unchanged: tap `PLAY` still navigates to game route and uses persisted progression.
+
+Implementation Details
+- Files changed:
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/ui/home_screen.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/modules/brick_blast/ui/home_screen_test.dart`
+- Test compatibility updates:
+  - home test now asserts `Key('home-diamond-mark')` exists
+  - home test now asserts `SingleChildScrollView` is absent
+- Validation command outcomes:
+  - `dart format lib/modules/brick_blast/ui/home_screen.dart test/modules/brick_blast/ui/home_screen_test.dart` passed
+  - `flutter analyze` passed (no issues)
+  - `flutter test` passed (full suite)
+  - `flutter run -d emulator-5554` launched/synced successfully and detached cleanly
+  - runtime re-check confirmed no home-screen RenderFlex overflow exceptions after responsive tightening
+
+## Decision D-020: Home Top-Row Proportion Fix + 20% CTA Downsizing
+Date: 2026-02-16
+Status: Accepted
+
+What it is?
+- Fine-tuned the home screen to improve top section geometry and reduce the `NEXT LEVEL` + `PLAY` area by 20%.
+- Locked top stats into fixed one-row proportions (compact side pills + wider center coin pill) for closer visual alignment with the reference.
+
+Why?
+- The top section in runtime did not match the target proportions and rhythm.
+- The lower CTA block was visually oversized compared to the provided design.
+
+How it helps?
+- Brings home screen hierarchy closer to the intended pixel-close composition.
+- Improves balance between top stats, center brand block, and bottom CTA.
+- Preserves non-scroll behavior and existing game flow.
+
+Details
+- Applied explicit `0.8` scale factor to CTA block:
+  - `NEXT LEVEL` font size
+  - `NEXT LEVEL -> PLAY` gap
+  - Play button height
+  - Play icon and text scale indirectly via button height
+- Top stats geometry updated:
+  - fixed row proportions changed to `32 : 44 : 32` (left/center/right)
+  - side pills compact, center pill wider
+  - top inset tightened for better visual placement under safe area
+- Top pill styling refined:
+  - reduced pill height/padding
+  - reduced number/label typography size
+  - softened border/shadow and coin glow
+- Added explicit top-row key for structure assertion:
+  - `Key('home-top-stats-row')`
+
+Implementation Details
+- Files changed:
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/ui/home_screen.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/modules/brick_blast/ui/home_screen_test.dart`
+- 20% reduction targets implemented:
+  - `const ctaScale = 0.8`
+  - `nextLevelFontSize * ctaScale`
+  - `nextLevelToPlayGap * ctaScale`
+  - `playHeight * ctaScale`
+- Top-row fixed proportion rule implemented:
+  - `Expanded(flex: 32)` / `Expanded(flex: 44)` / `Expanded(flex: 32)`
+- Validation command outcomes:
+  - `dart format lib/modules/brick_blast/ui/home_screen.dart test/modules/brick_blast/ui/home_screen_test.dart` passed
+  - `flutter analyze` passed (no issues)
+  - `flutter test` passed (full suite)
+  - `flutter run -d emulator-5554` launched and synced successfully; no RenderFlex exceptions observed; detached cleanly
+
+## Decision D-021: Level-Clear Result Screen (Custom Cyber Modal + Level-Only Score)
+Date: 2026-02-16
+Status: Accepted
+
+What it is?
+- Implemented a dedicated production-style level-clear result modal with cyber visual treatment, replacing the plain level-clear `AlertDialog`.
+- Added level-only score computation for the result screen while preserving existing coin/progression behavior.
+
+Why?
+- The previous level-clear dialog was generic and visually inconsistent with the game’s polished UI direction.
+- The result requirement explicitly needed a dedicated clear screen and level-only score display.
+
+How it helps?
+- Delivers a player-facing completion moment that matches the target design language.
+- Improves clarity with focused stats (`Score`, `Coins Earned`, `Total Coins`) and explicit progression actions (`NEXT LEVEL`, `HOME`).
+- Keeps progression stable while giving accurate per-level scoring context.
+
+Details
+- New modal includes:
+  - `LEVEL CLEARED!` heading (styled/glow)
+  - always 3 stars (locked)
+  - `MISSION COMPLETE` badge
+  - `Level <n>` label
+  - stat rows for level-only score, coins earned, total coins
+  - CTA buttons: `NEXT LEVEL ->` and `HOME`
+- Level-only score rule implemented in game screen:
+  - `levelScore = max(0, state.score - _currentLevelStartScore)`
+- Score baseline handling:
+  - initialized to 0 on screen init
+  - reset on restart actions
+  - reset to current cumulative score after advancing to next level
+- Home action from level-clear dialog returns to home and keeps unlocked progression as-is.
+
+Implementation Details
+- Files changed:
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/ui/result_dialog.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/ui/game_screen.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/modules/brick_blast/ui/result_dialog_test.dart`
+- New/updated test coverage:
+  - result dialog renders required content/stats and action buttons
+  - result dialog action callbacks (`NEXT LEVEL`, `HOME`) are tappable
+- 3-star lock:
+  - always renders exactly 3 styled stars in the level-clear header region
+- Level-only score formula used:
+  - `max(0, cumulativeScore - levelStartScoreBaseline)`
+- Action mapping:
+  - `NEXT LEVEL` => close dialog + `advanceToNextLevel()` + baseline reset
+  - `HOME` => close dialog + `_goHome()`
+- Validation outcomes:
+  - `dart format lib test` passed
+  - `flutter analyze` passed (no issues)
+  - `flutter test` passed (full suite)
+  - `flutter run -d emulator-5554` launched/synced successfully and detached cleanly
+
+## Decision D-022: Game Over Result Screen (Custom Cyber Modal + Level-Only Score + Retry Failed Level)
+Date: 2026-02-16
+Status: Accepted
+
+What it is?
+- Replaced the generic game-over `AlertDialog` with a dedicated production-style cyber modal that matches the latest game-over reference.
+- Locked game-over scoring to level-only score and mapped `PLAY AGAIN` to retry the same failed level.
+
+Why?
+- The previous game-over screen was visually inconsistent with the updated game UI/result system and lacked the target presentation quality.
+- Restart behavior needed to match product intent: replay the failed stage directly instead of forcing a level-1 restart.
+
+How it helps?
+- Provides a clear, polished end-of-run experience with stronger visual continuity to the rest of the game.
+- Removes ambiguity in score display by showing the failed level’s score delta only.
+- Reduces friction by letting players retry the same level immediately.
+
+Details
+- Game-over modal now includes:
+  - `GAME OVER` heading with glow/italic styling.
+  - `RESULT` chip.
+  - `FINAL SCORE` card with large formatted value.
+  - Primary CTA: `PLAY AGAIN` with refresh icon.
+  - Secondary CTA: `HOME` with home icon.
+- Game-over score formula:
+  - `finalLevelScore = max(0, cumulativeScore - _currentLevelStartScore)`.
+- Play-again behavior lock:
+  - `PLAY AGAIN` now triggers same-level retry via `retryCurrentLevel()`.
+- Home behavior lock:
+  - `HOME` closes modal and returns to module home route.
+- No coin payout logic changed for game over (clear-only payout rule preserved).
+
+Implementation Details
+- Files changed:
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/ui/result_dialog.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/ui/game_screen.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/logic/game_controller.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/modules/brick_blast/ui/result_dialog_test.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/modules/brick_blast/logic/game_controller_progression_test.dart`
+- Locked rules implemented:
+  - Level-only final score on game over.
+  - `PLAY AGAIN` retries same level index with fresh in-level state.
+- Controller behavior added:
+  - `retryCurrentLevel()` rebuilds current level prefill and resets run-scoped state (`score`, `coinsPaidBucketsInRun`, in-level transient simulation fields).
+- Validation results:
+  - `dart format lib test` passed.
+  - `flutter analyze` passed (no issues).
+  - `flutter test` passed (full suite).
+  - `flutter run -d emulator-5554` failed because device `emulator-5554` was not available in this session.
+  - `flutter devices` confirmed only `macOS` and `Chrome` were available.
+
+## Decision D-023: Home Top Section Simplification (Icon+Value Header, Best Hidden)
+Date: 2026-02-16
+Status: Accepted
+
+What it is?
+- Reworked the home-screen top section from a 3-pill metrics bar to a 2-group icon+value header.
+- Top row now shows only: completed levels (star + number) and total coins (coin + number).
+
+Why?
+- The latest design reference requires a cleaner top strip without card pills or metric labels.
+- The prior top bar included `BEST` and label text, which did not match the target visual direction.
+
+How it helps?
+- Aligns the home top area with the reference style and reduces visual clutter.
+- Improves immediate readability by emphasizing only the two required values.
+- Keeps the screen responsive and non-scroll while preserving existing gameplay/navigation flow.
+
+Details
+- Locked metric set implemented: `Level completed + Coins` only.
+- `BEST` metric is hidden in this pass (not deleted from persistence architecture globally).
+- Label-removal rule implemented: no `LEVEL` or `BEST` text rendered in top row.
+- Level value semantics kept as completed levels: `max(0, highestLevel - 1)`.
+- Lower home-screen sections (`diamond mark`, branding, `NEXT LEVEL`, `PLAY`) were left unchanged.
+
+Implementation Details
+- Files changed:
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/ui/home_screen.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/modules/brick_blast/ui/home_screen_test.dart`
+- Top-section implementation specifics:
+  - Removed 3-card `_StatPill` top layout.
+  - Added two compact groups in `_HomeTopStats`:
+    - left group: star icon in circular chip + completed level value
+    - right group: gold coin badge + formatted coin value
+  - Removed top-row label text rendering.
+- Validation outcomes:
+  - `dart format lib/modules/brick_blast/ui/home_screen.dart test/modules/brick_blast/ui/home_screen_test.dart` passed
+  - `flutter analyze` passed (no issues)
+  - `flutter test` passed (full suite)
+
+## Decision D-024: Login Screen Rebuild (Non-Scrollable, Flutter-Drawn 2x2 Brand Mark)
+Date: 2026-02-16
+Status: Accepted
+
+What it is?
+- Rebuilt the login screen to a pixel-close cyber layout aligned with the latest `login.png` reference.
+- Replaced reused app logo asset usage with a pure Flutter-drawn 2x2 brand mark and removed scroll-driven composition.
+
+Why?
+- The previous login implementation used a pasted logo asset and `SingleChildScrollView`, creating a non-native/pasted visual and weak layout rhythm.
+- The latest UI direction requires production-quality, responsive, deterministic composition across devices.
+
+How it helps?
+- Produces a stable, non-scroll login experience that better matches the reference hierarchy and visual language.
+- Ensures brand mark consistency using Flutter primitives only, avoiding dependency on pasted assets.
+- Preserves onboarding behavior while improving presentation quality and responsiveness.
+
+Details
+- Locked design decisions implemented:
+  - top icon uses Flutter-drawn 2x2 rounded tiles only
+  - no target overlay on `BRICK`
+  - non-scroll layout with deterministic spacing and size classes
+- Hero composition rebuilt:
+  - `BRICK` (cool white), `BLAST` (glow accent), centered `SHOOTER` capsule with side dividers
+- CTA rebuilt:
+  - `CONTINUE AS GUEST` full-width pill button with trailing circular arrow affordance
+  - preserved existing guest-login storage and routing behavior
+- Ambient background updated with subtle arcs, glass shapes, and spark dots for depth without clutter.
+
+Implementation Details
+- Files changed:
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/screens/login_screen.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/app_flow_test.dart`
+- No app icon reuse:
+  - removed `Image.asset('assets/images/splash_logo.png')` from login screen
+  - introduced pure Flutter `_LoginBrandMark` + `_BrandTile` composition
+- Non-scroll rule implementation:
+  - removed `SingleChildScrollView`
+  - implemented `SafeArea + LayoutBuilder + Stack + centered constrained Column` flow
+- Validation command outcomes:
+  - `dart format lib/screens/login_screen.dart test/app_flow_test.dart` passed
+  - `flutter analyze` passed (no issues)
+  - `flutter test` passed (full suite)
+
+## Decision D-025: Turn-Based Ball Launch Speed Scaling (+7% Compound, Level-Scoped, x2 Cap)
+Date: 2026-02-16
+Status: Accepted
+
+What it is?
+- Added a turn-based ball launch speed scaler for gameplay: launch speed now grows by 7% after each completed turn.
+- Speed scaling is level-scoped and capped at a maximum of `x2.0`.
+
+Why?
+- The launcher needed progressive momentum within a level while preserving balance and predictability.
+- A cap prevents runaway speed escalation and keeps physics/controls stable.
+
+How it helps?
+- Creates clear per-turn power progression and faster pacing deeper into each level.
+- Keeps difficulty manageable by resetting at level transitions and hard-capping growth.
+- Preserves existing phase flow and game-loop compatibility.
+
+Details
+- Growth formula at end-turn:
+  - `launchSpeedMultiplier = min(launchSpeedMultiplier * 1.07, 2.0)`
+- Firing speed formula:
+  - `launchSpeed = baseBallSpeed * launchSpeedMultiplier * cleanupFactor`
+- Reset behavior:
+  - `advanceToNextLevel()` resets multiplier to `1.0`
+  - `restart()` resets multiplier to `1.0`
+  - `retryCurrentLevel()` resets multiplier to `1.0`
+- Scope lock:
+  - no carry-over across levels
+  - scaling applies within the current level only
+
+Implementation Details
+- Files changed:
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/models/game_state.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/data/game_tuning.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/logic/simulation_engine.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/logic/turn_resolver.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/logic/game_controller.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/modules/brick_blast/logic/simulation_engine_test.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/modules/brick_blast/logic/turn_resolver_test.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/modules/brick_blast/logic/game_controller_progression_test.dart`
+- Added tuning constants:
+  - `turnSpeedGrowthMultiplier = 1.07`
+  - `maxLaunchSpeedMultiplier = 2.0`
+- Added state field:
+  - `launchSpeedMultiplier` in `GameState` (default `1.0`, included in `copyWith`)
+- Validation outcomes:
+  - `dart format ...` passed
+  - `flutter analyze` passed (no issues)
+  - `flutter test` passed (full suite)
+
+## Decision D-026: Unlock Next Level On Clear Before Result-Action Navigation
+Date: 2026-02-16
+Status: Accepted
+
+What it is?
+- Added explicit level-unlock confirmation logic so next level is persisted immediately when level-clear result is shown and user selects either `NEXT LEVEL` or `HOME`.
+- Home now correctly displays `NEXT LEVEL N+1` after clearing level `N`, regardless of which result action is chosen.
+
+Why?
+- Previously, progression unlock persisted mainly through `advanceToNextLevel()` and level transition paths.
+- If user chose `HOME` from level-clear modal, unlock persistence could lag and home could show stale next level value.
+
+How it helps?
+- Fixes progression UX inconsistency and prevents wrong home-state after a clear.
+- Makes unlock behavior deterministic and action-driven at the result modal.
+- Keeps existing gameplay and economy rules unchanged.
+
+Details
+- New controller method: `confirmLevelClearUnlock()`
+  - Guard: runs only when `pendingLevelUpDialog == true`
+  - Computes `unlockedNext = currentLevel + 1`
+  - Updates and persists `highestLevelReached = max(currentHighest, unlockedNext)`
+  - Idempotent for repeated calls in same clear state
+- Game screen integration:
+  - `onNextLevel` now calls `confirmLevelClearUnlock()` before `advanceToNextLevel()`
+  - `onHome` now calls `confirmLevelClearUnlock()` before navigating home
+- No route, storage-key, scoring, coin, or physics behavior changes.
+
+Implementation Details
+- Files changed:
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/logic/game_controller.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/ui/game_screen.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/modules/brick_blast/logic/game_controller_progression_test.dart`
+- Method behavior added:
+  - `confirmLevelClearUnlock()` performs explicit, persisted unlock without forcing level transition
+- Added regression coverage:
+  - unlock + persistence check for level-clear state
+  - idempotency check for repeated confirm calls
+- Validation outcomes:
+  - `dart format ...` passed
+  - `flutter analyze` passed (no issues)
+  - `flutter test` passed (full suite)

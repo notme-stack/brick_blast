@@ -118,6 +118,7 @@ class SimulationEngine {
       final direction = _directionFromAngle(state.launcher.aimAngle);
       final launchSpeed =
           GameTuning.turnConfig.ballSpeed *
+          state.launchSpeedMultiplier *
           (state.levelProgress.inCleanupPhase
               ? GameTuning.cleanupAssistSpeedMultiplier
               : 1.0);

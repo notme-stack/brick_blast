@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -32,6 +33,7 @@ class _BrickBlastGameScreenState extends State<BrickBlastGameScreen>
   bool _finalWaveShownForLevel = false;
   bool _isPausedOverlayOpen = false;
   int _bannerLevel = 1;
+  int _currentLevelStartScore = 0;
 
   @override
   void initState() {
@@ -42,6 +44,7 @@ class _BrickBlastGameScreenState extends State<BrickBlastGameScreen>
     )..addListener(_onControllerChanged);
 
     _bannerLevel = _controller.state.levelProgress.levelIndex;
+    _currentLevelStartScore = 0;
 
     _ticker = createTicker((elapsed) {
       final delta = elapsed - _lastElapsed;
@@ -120,18 +123,21 @@ class _BrickBlastGameScreenState extends State<BrickBlastGameScreen>
 
   void _showGameOverDialog() {
     final state = _controller.state;
+    final finalLevelScore = math.max(0, state.score - _currentLevelStartScore);
     showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (_) {
-        return ResultDialog(
-          title: 'Game Over',
-          subtitle:
-              'Score: ${_formatScore(state.score)}\nLevel: ${state.levelProgress.levelIndex}',
-          onBack: _goHome,
+        return GameOverResultDialog(
+          finalScore: finalLevelScore,
+          onHome: () {
+            Navigator.of(context).pop();
+            _goHome();
+          },
           onPlayAgain: () {
             Navigator.of(context).pop();
-            _controller.restart();
+            _controller.retryCurrentLevel();
+            _currentLevelStartScore = 0;
           },
         );
       },
@@ -140,28 +146,27 @@ class _BrickBlastGameScreenState extends State<BrickBlastGameScreen>
 
   void _showLevelCompleteDialog() {
     final state = _controller.state;
+    final levelScore = math.max(0, state.score - _currentLevelStartScore);
     showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (_) {
-        return AlertDialog(
-          title: const Text('Level Complete'),
-          content: Text(
-            'Level ${state.levelProgress.levelIndex} cleared!\n'
-            'Score: ${_formatScore(state.score)}\n'
-            'Coins earned: ${state.coinsEarnedThisLevel}\n'
-            'Total coins: ${state.totalCoins}\n'
-            'Next: Level ${state.levelProgress.levelIndex + 1}',
-          ),
-          actions: [
-            FilledButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _controller.advanceToNextLevel();
-              },
-              child: const Text('Next Level'),
-            ),
-          ],
+        return LevelClearResultDialog(
+          level: state.levelProgress.levelIndex,
+          levelScore: levelScore,
+          coinsEarned: state.coinsEarnedThisLevel,
+          totalCoins: state.totalCoins,
+          onNextLevel: () {
+            Navigator.of(context).pop();
+            _controller.confirmLevelClearUnlock();
+            _controller.advanceToNextLevel();
+            _currentLevelStartScore = _controller.state.score;
+          },
+          onHome: () {
+            Navigator.of(context).pop();
+            _controller.confirmLevelClearUnlock();
+            _goHome();
+          },
         );
       },
     );
@@ -379,6 +384,7 @@ class _BrickBlastGameScreenState extends State<BrickBlastGameScreen>
         return;
       case _PauseAction.restart:
         _controller.restart();
+        _currentLevelStartScore = 0;
       case _PauseAction.home:
         _goHome();
     }

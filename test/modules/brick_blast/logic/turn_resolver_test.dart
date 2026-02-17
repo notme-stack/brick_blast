@@ -47,6 +47,29 @@ void main() {
     expect(pastThresholdResolved.phase, GamePhase.gameOver);
     expect(pastThresholdResolved.shouldShowGameOverDialog, true);
   });
+
+  test('end turn increases launch speed multiplier by 7%', () {
+    final state = _baseStateWithBrickRow(
+      8,
+    ).copyWith(launchSpeedMultiplier: 1.0);
+
+    final resolved = resolver.resolve(state);
+
+    expect(
+      resolved.launchSpeedMultiplier,
+      closeTo(GameTuning.turnSpeedGrowthMultiplier, 1e-9),
+    );
+  });
+
+  test('end turn launch speed multiplier is capped at x2', () {
+    final state = _baseStateWithBrickRow(
+      8,
+    ).copyWith(launchSpeedMultiplier: 1.99);
+
+    final resolved = resolver.resolve(state);
+
+    expect(resolved.launchSpeedMultiplier, GameTuning.maxLaunchSpeedMultiplier);
+  });
 }
 
 GameState _baseStateWithBrickRow(int row) {
@@ -97,5 +120,6 @@ GameState _baseStateWithBrickRow(int row) {
     coinsEarnedThisLevel: 0,
     coinsPaidBucketsInRun: 0,
     highestLevelReached: 1,
+    launchSpeedMultiplier: 1.0,
   );
 }

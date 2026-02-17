@@ -32,6 +32,7 @@ class GameState {
     this.coinsEarnedThisLevel = 0,
     this.coinsPaidBucketsInRun = 0,
     this.highestLevelReached = 1,
+    this.launchSpeedMultiplier = 1.0,
   });
 
   final GamePhase phase;
@@ -58,6 +59,7 @@ class GameState {
   final int coinsEarnedThisLevel;
   final int coinsPaidBucketsInRun;
   final int highestLevelReached;
+  final double launchSpeedMultiplier;
 
   GameState copyWith({
     GamePhase? phase,
@@ -85,6 +87,7 @@ class GameState {
     int? coinsEarnedThisLevel,
     int? coinsPaidBucketsInRun,
     int? highestLevelReached,
+    double? launchSpeedMultiplier,
   }) {
     return GameState(
       phase: phase ?? this.phase,
@@ -115,6 +118,8 @@ class GameState {
       coinsPaidBucketsInRun:
           coinsPaidBucketsInRun ?? this.coinsPaidBucketsInRun,
       highestLevelReached: highestLevelReached ?? this.highestLevelReached,
+      launchSpeedMultiplier:
+          launchSpeedMultiplier ?? this.launchSpeedMultiplier,
     );
   }
 }

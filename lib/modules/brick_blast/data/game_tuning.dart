@@ -29,6 +29,8 @@ class GameTuning {
   static const double maxBallFlightSeconds = 12.0;
   static const double minVerticalSpeedAfterTopBounce = 0.22;
   static const double minBallVelocityMagnitude = 0.16;
+  static const double turnSpeedGrowthMultiplier = 1.07;
+  static const double maxLaunchSpeedMultiplier = 2.0;
   static const int finalWaveBannerDurationMs = 1400;
   static const List<int> blitzLevels = [3, 8, 13];
 
