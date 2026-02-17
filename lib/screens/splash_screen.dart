@@ -170,6 +170,7 @@ class _LoadingRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final sweepWidth = width * 0.5;
     return ClipRRect(
       borderRadius: BorderRadius.circular(999),
       child: Stack(
@@ -186,10 +187,12 @@ class _LoadingRail extends StatelessWidget {
           AnimatedBuilder(
             animation: controller,
             builder: (context, child) {
-              return Align(
-                alignment: Alignment(-1 + (2 * controller.value), 0),
+              final travel = width + sweepWidth;
+              final left = (travel * controller.value) - sweepWidth;
+              return Transform.translate(
+                offset: Offset(left, 0),
                 child: Container(
-                  width: width * 0.55,
+                  width: sweepWidth,
                   height: 10,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(

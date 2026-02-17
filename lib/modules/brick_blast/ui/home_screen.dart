@@ -61,7 +61,15 @@ class _BrickBlastHomeScreenState extends State<BrickBlastHomeScreen> {
               final layoutScale = math
                   .min(height / 860, width / 430)
                   .clamp(0.58, 1.0);
-              const ctaScale = 0.8;
+              const coreScale = 0.6;
+              const statsScale = 0.6;
+              const ctaScale = 0.6;
+              final titleReadabilityFloor = sizeClass == _HomeSizeClass.compact
+                  ? 34.0
+                  : 36.0;
+              final shooterReadabilityFloor = 12.0;
+              final nextLevelReadabilityFloor = 12.0;
+              final playReadabilityFloor = 22.0;
 
               final iconSize =
                   switch (sizeClass) {
@@ -69,21 +77,24 @@ class _BrickBlastHomeScreenState extends State<BrickBlastHomeScreen> {
                     _HomeSizeClass.regular => 250.0,
                     _HomeSizeClass.tall => 274.0,
                   } *
-                  layoutScale;
+                  layoutScale *
+                  coreScale;
               final titleSize =
                   switch (sizeClass) {
                     _HomeSizeClass.compact => 66.0,
                     _HomeSizeClass.regular => 74.0,
                     _HomeSizeClass.tall => 80.0,
                   } *
-                  layoutScale;
+                  layoutScale *
+                  coreScale;
               final shooterSize =
                   switch (sizeClass) {
                     _HomeSizeClass.compact => 22.0,
                     _HomeSizeClass.regular => 26.0,
                     _HomeSizeClass.tall => 28.0,
                   } *
-                  layoutScale;
+                  layoutScale *
+                  coreScale;
               final playHeight =
                   switch (sizeClass) {
                     _HomeSizeClass.compact => 106.0,
@@ -92,6 +103,30 @@ class _BrickBlastHomeScreenState extends State<BrickBlastHomeScreen> {
                   } *
                   layoutScale *
                   ctaScale;
+              final topInsetShift =
+                  switch (sizeClass) {
+                    _HomeSizeClass.compact => 14.0,
+                    _HomeSizeClass.regular => 18.0,
+                    _HomeSizeClass.tall => 24.0,
+                  } *
+                  layoutScale;
+              final ctaTopMargin =
+                  switch (sizeClass) {
+                    _HomeSizeClass.compact => 10.0,
+                    _HomeSizeClass.regular => 14.0,
+                    _HomeSizeClass.tall => 18.0,
+                  } *
+                  layoutScale;
+              final centerFlex = switch (sizeClass) {
+                _HomeSizeClass.compact => 46,
+                _HomeSizeClass.regular => 48,
+                _HomeSizeClass.tall => 50,
+              };
+              final bottomFlex = switch (sizeClass) {
+                _HomeSizeClass.compact => 22,
+                _HomeSizeClass.regular => 24,
+                _HomeSizeClass.tall => 26,
+              };
 
               return Stack(
                 children: [
@@ -104,78 +139,125 @@ class _BrickBlastHomeScreenState extends State<BrickBlastHomeScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                         child: Column(
                           children: [
-                            SizedBox(height: sizeClass.topPadding),
+                            SizedBox(
+                              height: sizeClass.topPadding + topInsetShift,
+                            ),
                             _HomeTopStats(
                               levelsCompleted: _levelsCompleted,
                               totalCoins: _totalCoins,
                               compact: sizeClass == _HomeSizeClass.compact,
-                              scale: layoutScale,
+                              scale: layoutScale * statsScale,
                             ),
                             Expanded(
                               child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  _HomeDiamondMark(size: iconSize),
-                                  SizedBox(
-                                    height:
-                                        sizeClass.iconToTitleGap * layoutScale,
-                                  ),
-                                  FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: Text(
-                                      'BRICK BLAST',
-                                      style: TextStyle(
-                                        fontSize: titleSize,
-                                        fontWeight: FontWeight.w800,
-                                        letterSpacing: 0.8,
-                                        color: const Color(0xFFDDE6FB),
-                                        shadows: const [
-                                          Shadow(
-                                            color: Color(0x553F5BDD),
-                                            blurRadius: 22,
+                                  Expanded(
+                                    flex: centerFlex,
+                                    child: Center(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          _HomeDiamondMark(size: iconSize),
+                                          SizedBox(
+                                            height:
+                                                sizeClass.iconToTitleGap *
+                                                layoutScale *
+                                                coreScale,
+                                          ),
+                                          FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            child: Text(
+                                              'BRICK BLAST',
+                                              style: TextStyle(
+                                                fontSize: titleSize.clamp(
+                                                  titleReadabilityFloor,
+                                                  double.infinity,
+                                                ),
+                                                fontWeight: FontWeight.w800,
+                                                letterSpacing: 0.8,
+                                                color: const Color(0xFFDDE6FB),
+                                                shadows: const [
+                                                  Shadow(
+                                                    color: Color(0x553F5BDD),
+                                                    blurRadius: 22,
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                          SizedBox(
+                                            height:
+                                                sizeClass.titleToShooterGap *
+                                                layoutScale *
+                                                coreScale,
+                                          ),
+                                          Text(
+                                            'SHOOTER',
+                                            style: TextStyle(
+                                              fontSize: shooterSize.clamp(
+                                                shooterReadabilityFloor,
+                                                double.infinity,
+                                              ),
+                                              fontWeight: FontWeight.w700,
+                                              letterSpacing: 9,
+                                              color: const Color(0xFF8FA0C7),
+                                            ),
                                           ),
                                         ],
                                       ),
                                     ),
                                   ),
-                                  SizedBox(
-                                    height:
-                                        sizeClass.titleToShooterGap *
-                                        layoutScale,
-                                  ),
-                                  Text(
-                                    'SHOOTER',
-                                    style: TextStyle(
-                                      fontSize: shooterSize,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 9,
-                                      color: const Color(0xFF8FA0C7),
+                                  Expanded(
+                                    flex: bottomFlex,
+                                    child: Align(
+                                      alignment: Alignment.topCenter,
+                                      child: Padding(
+                                        padding: EdgeInsets.only(
+                                          top: ctaTopMargin,
+                                        ),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              'NEXT LEVEL $_nextLevel',
+                                              style: TextStyle(
+                                                fontSize:
+                                                    (sizeClass.nextLevelFontSize *
+                                                            layoutScale *
+                                                            ctaScale)
+                                                        .clamp(
+                                                          nextLevelReadabilityFloor,
+                                                          double.infinity,
+                                                        ),
+                                                fontWeight: FontWeight.w700,
+                                                letterSpacing: 1.9,
+                                                color: const Color(0xFF8FA0C7),
+                                              ),
+                                            ),
+                                            SizedBox(
+                                              height:
+                                                  sizeClass.nextLevelToPlayGap *
+                                                  layoutScale *
+                                                  ctaScale,
+                                            ),
+                                            _PlayButton(
+                                              height: playHeight,
+                                              minTextSize: playReadabilityFloor,
+                                              onTap: _openGame,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            Text(
-                              'NEXT LEVEL $_nextLevel',
-                              style: TextStyle(
-                                fontSize:
-                                    sizeClass.nextLevelFontSize *
-                                    layoutScale *
-                                    ctaScale,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 1.9,
-                                color: const Color(0xFF8FA0C7),
-                              ),
-                            ),
                             SizedBox(
                               height:
-                                  sizeClass.nextLevelToPlayGap *
+                                  sizeClass.bottomPadding *
                                   layoutScale *
                                   ctaScale,
-                            ),
-                            _PlayButton(height: playHeight, onTap: _openGame),
-                            SizedBox(
-                              height: sizeClass.bottomPadding * layoutScale,
                             ),
                           ],
                         ),
@@ -238,9 +320,9 @@ enum _HomeSizeClass {
   };
 
   double get bottomPadding => switch (this) {
-    _HomeSizeClass.compact => 10,
-    _HomeSizeClass.regular => 14,
-    _HomeSizeClass.tall => 18,
+    _HomeSizeClass.compact => 6,
+    _HomeSizeClass.regular => 8,
+    _HomeSizeClass.tall => 10,
   };
 }
 
@@ -488,9 +570,14 @@ class _DiamondTile extends StatelessWidget {
 }
 
 class _PlayButton extends StatelessWidget {
-  const _PlayButton({required this.height, required this.onTap});
+  const _PlayButton({
+    required this.height,
+    required this.minTextSize,
+    required this.onTap,
+  });
 
   final double height;
+  final double minTextSize;
   final VoidCallback onTap;
 
   @override
@@ -533,7 +620,10 @@ class _PlayButton extends StatelessWidget {
                     'PLAY',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: height * 0.42,
+                      fontSize: (height * 0.42).clamp(
+                        minTextSize,
+                        double.infinity,
+                      ),
                       letterSpacing: 1.4,
                       fontWeight: FontWeight.w700,
                     ),

@@ -63,6 +63,11 @@ class GameController extends ChangeNotifier {
   static const String highestLevelKey = 'brick_blast_highest_level';
   static const String totalCoinsKey = 'brick_blast_total_coins';
   static const String projectileStyleKey = 'brick_blast_projectile_style';
+  static const String resumeLevelKey = 'brick_blast_resume_level';
+  static const String resumeBallCountKey = 'brick_blast_resume_ball_count';
+  static const String resumeScoreKey = 'brick_blast_resume_score';
+  static const String resumePaidBucketsKey = 'brick_blast_resume_paid_buckets';
+  static const String resumeValidKey = 'brick_blast_resume_valid';
 
   GameState get state => _state;
 
@@ -70,26 +75,52 @@ class GameController extends ChangeNotifier {
     final best = _storageService.read<int>(bestScoreKey) ?? 0;
     final highest = _storageService.read<int>(highestLevelKey) ?? 1;
     final totalCoins = _storageService.read<int>(totalCoinsKey) ?? 0;
+    final resumeValid = _storageService.read<bool>(resumeValidKey) ?? false;
+    final resumeLevel = _storageService.read<int>(resumeLevelKey) ?? highest;
+    final resumeBallCount =
+        _storageService.read<int>(resumeBallCountKey) ??
+        GameTuning.initialBallCount;
+    final resumeScore = _storageService.read<int>(resumeScoreKey) ?? 0;
+    final resumePaidBuckets =
+        _storageService.read<int>(resumePaidBucketsKey) ?? 0;
     final styleName = _storageService.read<String>(projectileStyleKey);
     final projectileStyle = ProjectileStyle.values.firstWhere(
       (style) => style.name == styleName,
       orElse: () => ProjectileStyle.dotted,
     );
-    final levelIndex = max(1, max(highest, _state.levelProgress.levelIndex));
+    final levelIndex = resumeValid
+        ? max(1, resumeLevel)
+        : max(1, max(highest, _state.levelProgress.levelIndex));
+    final ballCount = resumeValid
+        ? max(GameTuning.initialBallCount, resumeBallCount)
+        : GameTuning.initialBallCount;
+    final ballCap = GameTuning.maxBallsForLevel(levelIndex);
     final progressSeed = _planBuilder.buildForLevel(levelIndex);
-    final prefill = _prefillLevel(progressSeed);
+    final prefill = _prefillLevel(
+      progressSeed.copyWith(
+        checkpointBallCount: ballCount,
+        ballCapAtLevelStart: ballCap,
+      ),
+    );
 
     _state = _state.copyWith(
       bestScore: best,
+      balls: _freshBalls(0.5, count: ballCount),
       levelProgress: prefill.progress,
       bricks: prefill.bricks,
       wavePatternLast: prefill.wavePattern,
       damageMultiplier: _progressionService.damageMultiplier(prefill.progress),
-      highestLevelReached: highest,
+      highestLevelReached: max(highest, levelIndex),
       totalCoins: totalCoins,
       projectileStyle: projectileStyle,
       coinsEarnedThisLevel: 0,
-      coinsPaidBucketsInRun: 0,
+      coinsPaidBucketsInRun: resumeValid ? resumePaidBuckets : 0,
+      ballCount: ballCount,
+      score: resumeValid ? max(0, resumeScore) : 0,
+      levelEntryBallCount: ballCount,
+      ballCapForLevel: ballCap,
+      overflowBallsLastClear: 0,
+      coinsFromOverflowLastClear: 0,
     );
     notifyListeners();
   }
@@ -108,6 +139,27 @@ class GameController extends ChangeNotifier {
 
   Future<void> _persistProjectileStyle(ProjectileStyle style) async {
     await _storageService.write(projectileStyleKey, style.name);
+  }
+
+  Future<void> _persistRunSnapshot({
+    required int levelIndex,
+    required int ballCount,
+    required int score,
+    required int coinsPaidBucketsInRun,
+  }) async {
+    await _storageService.write(resumeLevelKey, levelIndex);
+    await _storageService.write(resumeBallCountKey, ballCount);
+    await _storageService.write(resumeScoreKey, score);
+    await _storageService.write(resumePaidBucketsKey, coinsPaidBucketsInRun);
+    await _storageService.write(resumeValidKey, true);
+  }
+
+  Future<void> _clearRunSnapshot() async {
+    await _storageService.write(resumeValidKey, false);
+    await _storageService.write(resumeLevelKey, null);
+    await _storageService.write(resumeBallCountKey, null);
+    await _storageService.write(resumeScoreKey, null);
+    await _storageService.write(resumePaidBucketsKey, null);
   }
 
   Future<void> _logGameStart() {
@@ -289,14 +341,25 @@ class GameController extends ChangeNotifier {
     );
     _logGameStart();
     _logLevelStart();
+    _clearRunSnapshot();
     notifyListeners();
   }
 
   void retryCurrentLevel() {
     final retryLevel = max(1, _state.levelProgress.levelIndex);
-    final progressSeed = _planBuilder.buildForLevel(retryLevel);
+    final retryBallCount = max(
+      GameTuning.initialBallCount,
+      _state.levelEntryBallCount,
+    );
+    final retryBallCap = GameTuning.maxBallsForLevel(retryLevel);
+    final progressSeed = _planBuilder
+        .buildForLevel(retryLevel)
+        .copyWith(
+          checkpointBallCount: retryBallCount,
+          ballCapAtLevelStart: retryBallCap,
+          overflowBallsOnClear: 0,
+        );
     final prefill = _prefillLevel(progressSeed);
-    final retryBallCount = GameTuning.initialBallCount;
 
     _accumulator = 0;
     _state = _state.copyWith(
@@ -323,10 +386,15 @@ class GameController extends ChangeNotifier {
       projectileStyle: _state.projectileStyle,
       highestLevelReached: max(_state.highestLevelReached, retryLevel),
       launchSpeedMultiplier: 1.0,
+      levelEntryBallCount: retryBallCount,
+      ballCapForLevel: retryBallCap,
+      overflowBallsLastClear: 0,
+      coinsFromOverflowLastClear: 0,
     );
 
     _logGameStart();
     _logLevelStart();
+    _clearRunSnapshot();
     notifyListeners();
   }
 
@@ -335,6 +403,14 @@ class GameController extends ChangeNotifier {
       return;
     }
     _state = _state.copyWith(shouldShowGameOverDialog: false);
+    notifyListeners();
+  }
+
+  void consumeLevelClearDialog() {
+    if (!_state.pendingLevelUpDialog) {
+      return;
+    }
+    _state = _state.copyWith(pendingLevelUpDialog: false);
     notifyListeners();
   }
 
@@ -355,12 +431,16 @@ class GameController extends ChangeNotifier {
   }
 
   void advanceToNextLevel() {
-    if (!_state.pendingLevelUpDialog) {
-      return;
-    }
-
+    final carryBallCount = _applyLevelClearBallCapTrim();
     final nextLevelIndex = _state.levelProgress.levelIndex + 1;
-    final nextProgressSeed = _planBuilder.buildForLevel(nextLevelIndex);
+    final nextBallCap = GameTuning.maxBallsForLevel(nextLevelIndex);
+    final nextProgressSeed = _planBuilder
+        .buildForLevel(nextLevelIndex)
+        .copyWith(
+          checkpointBallCount: carryBallCount,
+          ballCapAtLevelStart: nextBallCap,
+          overflowBallsOnClear: 0,
+        );
     final prefill = _prefillLevel(nextProgressSeed);
 
     _state = _state.copyWith(
@@ -369,7 +449,7 @@ class GameController extends ChangeNotifier {
       damageMultiplier: _progressionService.damageMultiplier(prefill.progress),
       wavePatternLast: prefill.wavePattern,
       bricks: prefill.bricks,
-      balls: _freshBalls(_state.launcher.x, count: _state.ballCount),
+      balls: _freshBalls(_state.launcher.x, count: carryBallCount),
       phase: GamePhase.idle,
       isInputLocked: false,
       ballsToFire: 0,
@@ -380,11 +460,38 @@ class GameController extends ChangeNotifier {
       projectileStyle: _state.projectileStyle,
       highestLevelReached: max(_state.highestLevelReached, nextLevelIndex),
       launchSpeedMultiplier: 1.0,
+      ballCount: carryBallCount,
+      levelEntryBallCount: carryBallCount,
+      ballCapForLevel: nextBallCap,
     );
 
     _persistHighestLevel(_state.highestLevelReached);
+    _clearRunSnapshot();
     _logLevelStart();
     notifyListeners();
+  }
+
+  void saveRunSnapshot({int? levelOverride}) {
+    final level = max(1, levelOverride ?? _state.levelProgress.levelIndex);
+    final levelBallCap = GameTuning.maxBallsForLevel(level);
+    final balls = max(
+      GameTuning.initialBallCount,
+      min(_state.ballCount, levelBallCap),
+    );
+    _persistRunSnapshot(
+      levelIndex: level,
+      ballCount: balls,
+      score: _state.score,
+      coinsPaidBucketsInRun: _state.coinsPaidBucketsInRun,
+    );
+  }
+
+  int applyLevelClearCarryover() {
+    return _applyLevelClearBallCapTrim();
+  }
+
+  void clearRunSnapshot() {
+    _clearRunSnapshot();
   }
 
   GameState _updateBestScore(GameState updated) {
@@ -435,6 +542,24 @@ class GameController extends ChangeNotifier {
     );
     _persistTotalCoins(totalCoins);
     return coinsAwarded;
+  }
+
+  int _applyLevelClearBallCapTrim() {
+    final level = _state.levelProgress.levelIndex;
+    final cap = GameTuning.maxBallsForLevel(level);
+    final overflow = max(0, _state.ballCount - cap);
+    final carry = _state.ballCount - overflow;
+
+    _state = _state.copyWith(
+      ballCount: carry,
+      balls: _freshBalls(_state.launcher.x, count: carry),
+      overflowBallsLastClear: overflow,
+      coinsFromOverflowLastClear: 0,
+      levelProgress: _state.levelProgress.copyWith(
+        overflowBallsOnClear: overflow,
+      ),
+    );
+    return carry;
   }
 
   List<Ball> _freshBalls(double launcherX, {int? count}) {
@@ -507,7 +632,15 @@ class GameController extends ChangeNotifier {
 
   GameState _buildInitialState() {
     final launcher = Launcher(x: 0.5, y: GameTuning.launcherY, aimAngle: -90);
-    final progressSeed = _planBuilder.buildForLevel(1);
+    final level = 1;
+    final ballCap = GameTuning.maxBallsForLevel(level);
+    final progressSeed = _planBuilder
+        .buildForLevel(level)
+        .copyWith(
+          checkpointBallCount: GameTuning.initialBallCount,
+          ballCapAtLevelStart: ballCap,
+          overflowBallsOnClear: 0,
+        );
     final prefill = _prefillLevel(progressSeed);
 
     return GameState(
@@ -535,6 +668,10 @@ class GameController extends ChangeNotifier {
       coinsPaidBucketsInRun: 0,
       highestLevelReached: 1,
       launchSpeedMultiplier: 1.0,
+      levelEntryBallCount: GameTuning.initialBallCount,
+      ballCapForLevel: ballCap,
+      overflowBallsLastClear: 0,
+      coinsFromOverflowLastClear: 0,
     );
   }
 }

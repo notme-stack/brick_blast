@@ -59,12 +59,11 @@ class LocalStorageService {
     );
   }
 
-  static void clear() {
+  static Future<void> clear() async {
     _memory.clear();
     final prefs = _prefs;
     if (prefs != null) {
-      // Best-effort test cleanup in environments where storage is initialized.
-      prefs.clear();
+      await prefs.clear();
     }
   }
 }

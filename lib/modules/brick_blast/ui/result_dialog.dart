@@ -45,13 +45,13 @@ class GameOverResultDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final isCompact = size.height < 780 || size.width < 390;
-    final dialogWidth = math.min(size.width - 28, 620.0);
-    final maxDialogHeight = size.height - 44;
+    final dialogWidth = math.min(size.width - 28, 330.0);
+    final maxDialogHeight = size.height - 36;
 
     return Dialog(
       key: const Key('game-over-dialog'),
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 20),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxHeight: maxDialogHeight,
@@ -66,7 +66,7 @@ class GameOverResultDialog extends StatelessWidget {
                 end: Alignment.bottomCenter,
                 colors: [Color(0xFF131C33), Color(0xFF0A1228)],
               ),
-              borderRadius: BorderRadius.all(Radius.circular(42)),
+              borderRadius: BorderRadius.all(Radius.circular(32)),
               boxShadow: [
                 BoxShadow(
                   color: Color(0x5A3044AA),
@@ -77,10 +77,10 @@ class GameOverResultDialog extends StatelessWidget {
             ),
             child: SingleChildScrollView(
               padding: EdgeInsets.fromLTRB(
-                isCompact ? 18 : 24,
-                isCompact ? 18 : 24,
-                isCompact ? 18 : 24,
-                isCompact ? 20 : 24,
+                isCompact ? 12 : 14,
+                isCompact ? 12 : 14,
+                isCompact ? 12 : 14,
+                isCompact ? 12 : 14,
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -89,7 +89,7 @@ class GameOverResultDialog extends StatelessWidget {
                     'GAME OVER',
                     style: TextStyle(
                       color: const Color(0xFFD9E3FF),
-                      fontSize: isCompact ? 34 : 40,
+                      fontSize: isCompact ? 28 : 32,
                       fontWeight: FontWeight.w800,
                       fontStyle: FontStyle.italic,
                       letterSpacing: 0.6,
@@ -98,11 +98,11 @@ class GameOverResultDialog extends StatelessWidget {
                       ],
                     ),
                   ),
-                  SizedBox(height: isCompact ? 20 : 24),
+                  SizedBox(height: isCompact ? 9 : 10),
                   Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(36),
+                      borderRadius: BorderRadius.circular(22),
                       gradient: const LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
@@ -119,17 +119,17 @@ class GameOverResultDialog extends StatelessWidget {
                     ),
                     child: Padding(
                       padding: EdgeInsets.fromLTRB(
-                        isCompact ? 14 : 18,
-                        isCompact ? 16 : 20,
-                        isCompact ? 14 : 18,
-                        isCompact ? 14 : 18,
+                        isCompact ? 8 : 10,
+                        isCompact ? 8 : 10,
+                        isCompact ? 8 : 10,
+                        isCompact ? 8 : 10,
                       ),
                       child: Column(
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 28,
-                              vertical: 7,
+                              horizontal: 22,
+                              vertical: 6,
                             ),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(999),
@@ -142,21 +142,21 @@ class GameOverResultDialog extends StatelessWidget {
                               'RESULT',
                               style: TextStyle(
                                 color: const Color(0xFFAAB8DA),
-                                fontSize: isCompact ? 12 : 14,
+                                fontSize: isCompact ? 11 : 12,
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: 1.3,
                               ),
                             ),
                           ),
-                          SizedBox(height: isCompact ? 14 : 18),
+                          SizedBox(height: isCompact ? 8 : 9),
                           Container(
                             width: double.infinity,
                             padding: EdgeInsets.symmetric(
-                              horizontal: isCompact ? 16 : 18,
-                              vertical: isCompact ? 18 : 22,
+                              horizontal: isCompact ? 14 : 16,
+                              vertical: isCompact ? 11 : 13,
                             ),
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(30),
+                              borderRadius: BorderRadius.circular(18),
                               gradient: const LinearGradient(
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
@@ -172,17 +172,17 @@ class GameOverResultDialog extends StatelessWidget {
                                   'FINAL SCORE',
                                   style: TextStyle(
                                     color: const Color(0xFFAAB8DA),
-                                    fontSize: isCompact ? 15 : 18,
+                                    fontSize: isCompact ? 13 : 15,
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: 1.2,
                                   ),
                                 ),
-                                SizedBox(height: isCompact ? 8 : 10),
+                                SizedBox(height: isCompact ? 5 : 6),
                                 Text(
                                   _formatNumber(finalScore),
                                   style: TextStyle(
                                     color: const Color(0xFFF2F6FF),
-                                    fontSize: isCompact ? 62 : 70,
+                                    fontSize: isCompact ? 34 : 38,
                                     fontWeight: FontWeight.w800,
                                     height: 1,
                                   ),
@@ -190,14 +190,14 @@ class GameOverResultDialog extends StatelessWidget {
                               ],
                             ),
                           ),
-                          SizedBox(height: isCompact ? 16 : 20),
+                          SizedBox(height: isCompact ? 8 : 9),
                           _PrimaryCtaButton(
                             title: 'PLAY AGAIN',
                             icon: Icons.refresh_rounded,
                             onTap: onPlayAgain,
                             compact: isCompact,
                           ),
-                          SizedBox(height: isCompact ? 10 : 12),
+                          SizedBox(height: isCompact ? 7 : 8),
                           _SecondaryCtaButton(
                             title: 'HOME',
                             icon: Icons.home_rounded,
@@ -240,13 +240,13 @@ class LevelClearResultDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final isCompact = size.height < 780 || size.width < 390;
-    final dialogWidth = math.min(size.width - 28, 620.0);
-    final maxDialogHeight = size.height - 44;
+    final dialogWidth = math.min(size.width - 28, 330.0);
+    final maxDialogHeight = size.height - 36;
 
     return Dialog(
       key: const Key('level-clear-dialog'),
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 20),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxHeight: maxDialogHeight,
@@ -261,7 +261,7 @@ class LevelClearResultDialog extends StatelessWidget {
                 end: Alignment.bottomCenter,
                 colors: [Color(0xFF131C33), Color(0xFF0A1228)],
               ),
-              borderRadius: BorderRadius.all(Radius.circular(42)),
+              borderRadius: BorderRadius.all(Radius.circular(32)),
               boxShadow: [
                 BoxShadow(
                   color: Color(0x5A3044AA),
@@ -272,10 +272,10 @@ class LevelClearResultDialog extends StatelessWidget {
             ),
             child: SingleChildScrollView(
               padding: EdgeInsets.fromLTRB(
-                isCompact ? 18 : 24,
-                isCompact ? 18 : 24,
-                isCompact ? 18 : 24,
-                isCompact ? 20 : 24,
+                isCompact ? 12 : 14,
+                isCompact ? 12 : 14,
+                isCompact ? 12 : 14,
+                isCompact ? 12 : 14,
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -284,7 +284,7 @@ class LevelClearResultDialog extends StatelessWidget {
                     'LEVEL CLEARED!',
                     style: TextStyle(
                       color: const Color(0xFFD9E3FF),
-                      fontSize: isCompact ? 34 : 40,
+                      fontSize: isCompact ? 26 : 30,
                       fontWeight: FontWeight.w800,
                       fontStyle: FontStyle.italic,
                       letterSpacing: 0.6,
@@ -293,23 +293,23 @@ class LevelClearResultDialog extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 6),
                   Row(
                     key: const Key('level-clear-stars'),
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: const [
-                      _GlowStar(size: 42),
-                      SizedBox(width: 8),
-                      _GlowStar(size: 54),
+                      _GlowStar(size: 32),
                       SizedBox(width: 8),
                       _GlowStar(size: 42),
+                      SizedBox(width: 8),
+                      _GlowStar(size: 32),
                     ],
                   ),
-                  SizedBox(height: isCompact ? 14 : 18),
+                  SizedBox(height: isCompact ? 8 : 9),
                   Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(36),
+                      borderRadius: BorderRadius.circular(22),
                       gradient: const LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
@@ -326,17 +326,17 @@ class LevelClearResultDialog extends StatelessWidget {
                     ),
                     child: Padding(
                       padding: EdgeInsets.fromLTRB(
-                        isCompact ? 14 : 18,
-                        isCompact ? 16 : 20,
-                        isCompact ? 14 : 18,
-                        isCompact ? 14 : 18,
+                        isCompact ? 8 : 10,
+                        isCompact ? 8 : 10,
+                        isCompact ? 8 : 10,
+                        isCompact ? 8 : 10,
                       ),
                       child: Column(
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 7,
+                              horizontal: 16,
+                              vertical: 6,
                             ),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(999),
@@ -349,29 +349,29 @@ class LevelClearResultDialog extends StatelessWidget {
                               'MISSION COMPLETE',
                               style: TextStyle(
                                 color: const Color(0xFFAAB8DA),
-                                fontSize: isCompact ? 12 : 14,
+                                fontSize: isCompact ? 11 : 12,
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: 1.3,
                               ),
                             ),
                           ),
-                          SizedBox(height: isCompact ? 14 : 16),
+                          SizedBox(height: isCompact ? 8 : 9),
                           Text(
                             'Level $level',
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: isCompact ? 42 : 48,
+                              fontSize: isCompact ? 28 : 32,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
-                          SizedBox(height: isCompact ? 14 : 18),
+                          SizedBox(height: isCompact ? 8 : 9),
                           _ResultStatRow(
                             icon: const _FlagBadge(),
                             label: 'Score',
                             value: _formatNumber(levelScore),
                             compact: isCompact,
                           ),
-                          SizedBox(height: isCompact ? 10 : 12),
+                          SizedBox(height: isCompact ? 7 : 8),
                           _ResultStatRow(
                             icon: const _CoinBadge(),
                             label: 'Coins Earned',
@@ -379,21 +379,21 @@ class LevelClearResultDialog extends StatelessWidget {
                             compact: isCompact,
                             emphasizeValue: true,
                           ),
-                          SizedBox(height: isCompact ? 10 : 12),
+                          SizedBox(height: isCompact ? 7 : 8),
                           _ResultStatRow(
                             icon: const _CoinBadge(),
                             label: 'Total Coins',
                             value: _formatNumber(totalCoins),
                             compact: isCompact,
                           ),
-                          SizedBox(height: isCompact ? 16 : 20),
+                          SizedBox(height: isCompact ? 10 : 12),
                           _PrimaryCtaButton(
                             title: 'NEXT LEVEL',
                             icon: Icons.arrow_forward_rounded,
                             onTap: onNextLevel,
                             compact: isCompact,
                           ),
-                          SizedBox(height: isCompact ? 10 : 12),
+                          SizedBox(height: isCompact ? 8 : 10),
                           _SecondaryCtaButton(
                             title: 'HOME',
                             icon: Icons.home_rounded,
@@ -433,11 +433,11 @@ class _ResultStatRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: compact ? 12 : 14,
-        vertical: compact ? 10 : 12,
+        horizontal: compact ? 10 : 12,
+        vertical: compact ? 8 : 10,
       ),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(18),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -448,13 +448,13 @@ class _ResultStatRow extends StatelessWidget {
       child: Row(
         children: [
           icon,
-          SizedBox(width: compact ? 10 : 12),
+          SizedBox(width: compact ? 8 : 10),
           Expanded(
             child: Text(
               label,
               style: TextStyle(
                 color: const Color(0xFFC8D4EE),
-                fontSize: compact ? 16 : 18,
+                fontSize: compact ? 14 : 16,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -465,7 +465,7 @@ class _ResultStatRow extends StatelessWidget {
               color: emphasizeValue
                   ? const Color(0xFFFFC736)
                   : const Color(0xFFF2F6FF),
-              fontSize: compact ? 22 : 25,
+              fontSize: compact ? 18 : 21,
               fontWeight: FontWeight.w800,
               shadows: emphasizeValue
                   ? const [Shadow(color: Color(0x66FFC736), blurRadius: 10)]
@@ -503,14 +503,14 @@ class _FlagBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 48,
-      height: 48,
+      width: 40,
+      height: 40,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         color: const Color(0xFF35427A),
       ),
       alignment: Alignment.center,
-      child: const Icon(Icons.flag, color: Color(0xFFB7C4FF), size: 24),
+      child: const Icon(Icons.flag, color: Color(0xFFB7C4FF), size: 20),
     );
   }
 }
@@ -521,8 +521,8 @@ class _CoinBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 48,
-      height: 48,
+      width: 40,
+      height: 40,
       decoration: const BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
@@ -539,7 +539,7 @@ class _CoinBadge extends StatelessWidget {
         r'$',
         style: TextStyle(
           color: Color(0xFF6A4711),
-          fontSize: 28,
+          fontSize: 22,
           fontWeight: FontWeight.w800,
           height: 1,
         ),
@@ -580,13 +580,13 @@ class _PrimaryCtaButton extends StatelessWidget {
             title,
             style: TextStyle(
               color: Colors.white,
-              fontSize: compact ? 20 : 23,
+              fontSize: compact ? 15 : 16,
               fontWeight: FontWeight.w700,
               letterSpacing: 1.5,
             ),
           ),
           const SizedBox(width: 8),
-          Icon(icon, color: Colors.white, size: compact ? 34 : 38),
+          Icon(icon, color: Colors.white, size: compact ? 22 : 24),
         ],
       ),
     );
@@ -621,13 +621,13 @@ class _SecondaryCtaButton extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: const Color(0xFFD4DDF2), size: compact ? 26 : 30),
+          Icon(icon, color: const Color(0xFFD4DDF2), size: compact ? 22 : 24),
           const SizedBox(width: 8),
           Text(
             title,
             style: TextStyle(
               color: const Color(0xFFD4DDF2),
-              fontSize: compact ? 17 : 20,
+              fontSize: compact ? 13 : 14,
               fontWeight: FontWeight.w700,
               letterSpacing: 1.5,
             ),
@@ -661,12 +661,12 @@ class _CtaButtonShell extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         child: Ink(
           width: double.infinity,
-          height: compact ? 66 : 76,
+          height: compact ? 46 : 50,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
             gradient: gradient,
             border: Border.all(color: borderColor),
             boxShadow: [

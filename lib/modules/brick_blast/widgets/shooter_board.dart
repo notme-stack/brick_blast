@@ -177,14 +177,6 @@ class _ShooterBoardPainter extends CustomPainter {
         colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
       ).createShader(rect);
     canvas.drawRect(rect, bgPaint);
-
-    final gridPaint = Paint()
-      ..color = const Color(0xFF38BDF8).withValues(alpha: 0.08)
-      ..strokeWidth = 1;
-    const step = 36.0;
-    for (double y = 0; y <= size.height; y += step) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
-    }
   }
 
   void _drawBricks(Canvas canvas, Size size) {

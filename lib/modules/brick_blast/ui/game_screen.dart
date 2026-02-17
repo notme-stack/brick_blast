@@ -32,6 +32,9 @@ class _BrickBlastGameScreenState extends State<BrickBlastGameScreen>
   bool _showFinalWaveBanner = false;
   bool _finalWaveShownForLevel = false;
   bool _isPausedOverlayOpen = false;
+  bool _isLevelClearDialogOpen = false;
+  int _trackedLevelForBaseline = 1;
+  bool _didHydrateInitialBaseline = false;
   int _bannerLevel = 1;
   int _currentLevelStartScore = 0;
 
@@ -44,7 +47,9 @@ class _BrickBlastGameScreenState extends State<BrickBlastGameScreen>
     )..addListener(_onControllerChanged);
 
     _bannerLevel = _controller.state.levelProgress.levelIndex;
-    _currentLevelStartScore = 0;
+    _trackedLevelForBaseline = _controller.state.levelProgress.levelIndex;
+    _currentLevelStartScore = _controller.state.score;
+    _didHydrateInitialBaseline = _controller.state.score > 0;
 
     _ticker = createTicker((elapsed) {
       final delta = elapsed - _lastElapsed;
@@ -76,6 +81,18 @@ class _BrickBlastGameScreenState extends State<BrickBlastGameScreen>
       _bannerLevel = state.levelProgress.levelIndex;
       _finalWaveShownForLevel = false;
       _showFinalWaveBanner = false;
+    }
+
+    if (!_didHydrateInitialBaseline && state.score > 0) {
+      _currentLevelStartScore = state.score;
+      _didHydrateInitialBaseline = true;
+      _trackedLevelForBaseline = state.levelProgress.levelIndex;
+    }
+
+    if (state.levelProgress.levelIndex != _trackedLevelForBaseline) {
+      _trackedLevelForBaseline = state.levelProgress.levelIndex;
+      _currentLevelStartScore = state.score;
+      _didHydrateInitialBaseline = true;
     }
 
     if (!_finalWaveShownForLevel &&
@@ -111,7 +128,8 @@ class _BrickBlastGameScreenState extends State<BrickBlastGameScreen>
       return;
     }
 
-    if (state.pendingLevelUpDialog) {
+    if (state.pendingLevelUpDialog && !_isLevelClearDialogOpen) {
+      _isLevelClearDialogOpen = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) {
           return;
@@ -132,12 +150,16 @@ class _BrickBlastGameScreenState extends State<BrickBlastGameScreen>
           finalScore: finalLevelScore,
           onHome: () {
             Navigator.of(context).pop();
-            _goHome();
+            _goHome(preserveRun: false);
           },
           onPlayAgain: () {
             Navigator.of(context).pop();
+            _controller.clearRunSnapshot();
             _controller.retryCurrentLevel();
             _currentLevelStartScore = 0;
+            _trackedLevelForBaseline =
+                _controller.state.levelProgress.levelIndex;
+            _didHydrateInitialBaseline = false;
           },
         );
       },
@@ -159,17 +181,28 @@ class _BrickBlastGameScreenState extends State<BrickBlastGameScreen>
           onNextLevel: () {
             Navigator.of(context).pop();
             _controller.confirmLevelClearUnlock();
+            _controller.consumeLevelClearDialog();
+            _controller.clearRunSnapshot();
             _controller.advanceToNextLevel();
             _currentLevelStartScore = _controller.state.score;
+            _trackedLevelForBaseline =
+                _controller.state.levelProgress.levelIndex;
+            _didHydrateInitialBaseline = true;
+            _isLevelClearDialogOpen = false;
           },
           onHome: () {
             Navigator.of(context).pop();
             _controller.confirmLevelClearUnlock();
-            _goHome();
+            _controller.applyLevelClearCarryover();
+            _controller.consumeLevelClearDialog();
+            _goHome(levelOverride: state.levelProgress.levelIndex + 1);
+            _isLevelClearDialogOpen = false;
           },
         );
       },
-    );
+    ).whenComplete(() {
+      _isLevelClearDialogOpen = false;
+    });
   }
 
   Future<void> _openPauseModal() async {
@@ -385,12 +418,19 @@ class _BrickBlastGameScreenState extends State<BrickBlastGameScreen>
       case _PauseAction.restart:
         _controller.restart();
         _currentLevelStartScore = 0;
+        _trackedLevelForBaseline = _controller.state.levelProgress.levelIndex;
+        _didHydrateInitialBaseline = false;
       case _PauseAction.home:
         _goHome();
     }
   }
 
-  void _goHome() {
+  void _goHome({bool preserveRun = true, int? levelOverride}) {
+    if (preserveRun) {
+      _controller.saveRunSnapshot(levelOverride: levelOverride);
+    } else {
+      _controller.clearRunSnapshot();
+    }
     final navigator = Navigator.of(context);
     var reachedHome = false;
     navigator.popUntil((route) {
@@ -414,11 +454,11 @@ class _BrickBlastGameScreenState extends State<BrickBlastGameScreen>
         child: LayoutBuilder(
           builder: (context, constraints) {
             final isCompact = constraints.maxWidth < 430;
-            final horizontalPadding = isCompact ? 12.0 : 20.0;
-            final topPadding = isCompact ? 10.0 : 16.0;
-            final hudInnerPadding = isCompact ? 14.0 : 18.0;
-            final scoreValueSize = isCompact ? 24.0 : 32.0;
-            final metricLabelSize = isCompact ? 14.0 : 16.0;
+            final horizontalPadding = isCompact ? 10.0 : 14.0;
+            final topPadding = isCompact ? 8.0 : 11.0;
+            final hudInnerPadding = isCompact ? 9.0 : 12.0;
+            final scoreValueSize = isCompact ? 18.0 : 24.0;
+            final metricLabelSize = isCompact ? 10.0 : 12.0;
             final boardMaxWidth = isCompact ? 560.0 : 680.0;
 
             return Padding(
@@ -440,7 +480,7 @@ class _BrickBlastGameScreenState extends State<BrickBlastGameScreen>
                     innerPadding: hudInnerPadding,
                     onSettingsTap: _openPauseModal,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   Expanded(
                     child: Center(
                       child: ConstrainedBox(
@@ -537,7 +577,7 @@ class _GameHud extends StatelessWidget {
       width: double.infinity,
       padding: EdgeInsets.all(innerPadding),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(18),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -560,7 +600,7 @@ class _GameHud extends StatelessWidget {
                     letterSpacing: 0.8,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   score,
                   style: TextStyle(
@@ -580,19 +620,19 @@ class _GameHud extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.water, size: 16, color: Color(0xFF6366F1)),
-                    const SizedBox(width: 6),
+                    const Icon(Icons.water, size: 13, color: Color(0xFF6366F1)),
+                    const SizedBox(width: 4),
                     Text(
                       wave,
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w800,
-                        fontSize: scoreValueSize * 0.82,
+                        fontSize: scoreValueSize * 0.78,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 1),
                 Text(
                   'LEVEL $level',
                   style: TextStyle(
@@ -609,15 +649,15 @@ class _GameHud extends StatelessWidget {
             borderRadius: BorderRadius.circular(32),
             onTap: onSettingsTap,
             child: Container(
-              width: 58,
-              height: 58,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: const Color(0xFF1E2A46),
                 border: Border.all(color: const Color(0xFF3C4A6A)),
               ),
               alignment: Alignment.center,
-              child: const Icon(Icons.settings, color: Colors.white, size: 28),
+              child: const Icon(Icons.settings, color: Colors.white, size: 20),
             ),
           ),
         ],

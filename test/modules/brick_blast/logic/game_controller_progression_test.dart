@@ -30,6 +30,8 @@ void main() {
     expect(state.levelProgress.wavesSpawned, GameTuning.initialPrefillRows);
     expect(rows.length, GameTuning.initialPrefillRows);
     expect(state.bricks.isNotEmpty, true);
+    expect(state.ballCount, GameTuning.initialBallCount);
+    expect(state.ballCount, 15);
   });
 
   test('retryCurrentLevel rebuilds same level with fresh run state', () {
@@ -42,7 +44,7 @@ void main() {
     controller.retryCurrentLevel();
     final state = controller.state;
 
-    expect(state.levelProgress.levelIndex, 1);
+    expect(state.levelProgress.levelIndex, 2);
     expect(state.score, 0);
     expect(state.ballCount, GameTuning.initialBallCount);
     expect(state.phase, GamePhase.idle);
@@ -88,6 +90,27 @@ void main() {
     expect(controller.state.launchSpeedMultiplier, 1.0);
   });
 
+  test('advanceToNextLevel trims carry balls to cleared-level cap', () {
+    final controller = GameController(
+      storageService: LocalStorageService(),
+      analyticsService: NoopAnalyticsService(),
+      engine: _FakeSimulationEngine(
+        nextStateBuilder: (state) => state.copyWith(
+          pendingLevelUpDialog: true,
+          ballCount: 45,
+          balls: const [],
+          levelProgress: state.levelProgress.copyWith(levelIndex: 1),
+        ),
+      ),
+    );
+
+    controller.tick(1 / 60);
+    controller.advanceToNextLevel();
+
+    expect(controller.state.ballCount, GameTuning.maxBallsForLevel(1));
+    expect(controller.state.overflowBallsLastClear, 15);
+  });
+
   test('confirmLevelClearUnlock unlocks next level and persists it', () {
     final storage = LocalStorageService();
     final controller = GameController(
@@ -129,6 +152,62 @@ void main() {
 
     expect(controller.state.highestLevelReached, 3);
     expect(storage.read<int>(GameController.highestLevelKey), 3);
+  });
+
+  test(
+    'saveRunSnapshot restores level, balls, score, and paid buckets on next controller',
+    () async {
+      final storage = LocalStorageService();
+      final first = GameController(
+        storageService: storage,
+        analyticsService: NoopAnalyticsService(),
+        engine: _FakeSimulationEngine(
+          nextStateBuilder: (state) => state.copyWith(
+            levelProgress: state.levelProgress.copyWith(levelIndex: 3),
+            ballCount: 19,
+            score: 830,
+            coinsPaidBucketsInRun: 8,
+            balls: const [],
+          ),
+        ),
+      );
+
+      first.tick(1 / 60);
+      first.saveRunSnapshot(levelOverride: 3);
+      await Future<void>.delayed(Duration.zero);
+
+      final resumed = GameController(
+        storageService: storage,
+        analyticsService: NoopAnalyticsService(),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(resumed.state.levelProgress.levelIndex, 3);
+      expect(resumed.state.ballCount, 19);
+      expect(resumed.state.score, 830);
+      expect(resumed.state.coinsPaidBucketsInRun, 8);
+    },
+  );
+
+  test('retryCurrentLevel restores level-entry checkpoint ball count', () {
+    final controller = GameController(
+      storageService: LocalStorageService(),
+      analyticsService: NoopAnalyticsService(),
+      engine: _FakeSimulationEngine(
+        nextStateBuilder: (state) => state.copyWith(
+          levelProgress: state.levelProgress.copyWith(levelIndex: 4),
+          levelEntryBallCount: 37,
+          ballCount: 52,
+        ),
+      ),
+    );
+
+    controller.tick(1 / 60);
+    controller.retryCurrentLevel();
+
+    expect(controller.state.levelProgress.levelIndex, 4);
+    expect(controller.state.ballCount, 37);
+    expect(controller.state.levelEntryBallCount, 37);
   });
 }
 

@@ -43,10 +43,11 @@ class LoginScreen extends StatelessWidget {
               final contentWidth = math.min(width * 0.9, 520.0);
 
               final logoSize = sizeClass.logoSize * layoutScale;
-              final titleSize = sizeClass.titleSize * layoutScale;
-              final shooterSize = sizeClass.shooterSize * layoutScale;
-              final buttonHeight = sizeClass.buttonHeight * layoutScale;
-              final footerSize = sizeClass.footerSize * layoutScale;
+              final titleSize = sizeClass.titleSize * layoutScale * 0.7;
+              final shooterSize = sizeClass.shooterSize * layoutScale * 0.7;
+              final buttonHeight = sizeClass.buttonHeight * layoutScale * 0.6;
+              final footerSize = sizeClass.footerSize * layoutScale * 0.6;
+              final logoDownShift = logoSize * 0.43;
 
               return Stack(
                 children: [
@@ -62,7 +63,9 @@ class LoginScreen extends StatelessWidget {
                         child: Column(
                           children: [
                             SizedBox(
-                              height: sizeClass.topSpacing * layoutScale,
+                              height:
+                                  (sizeClass.topSpacing * layoutScale) +
+                                  logoDownShift,
                             ),
                             _LoginBrandMark(size: logoSize),
                             SizedBox(
@@ -111,7 +114,10 @@ class LoginScreen extends StatelessWidget {
                               ),
                             ),
                             SizedBox(
-                              height: sizeClass.titleToShooterGap * layoutScale,
+                              height:
+                                  sizeClass.titleToShooterGap *
+                                  layoutScale *
+                                  0.7,
                             ),
                             Row(
                               children: [
@@ -161,7 +167,7 @@ class LoginScreen extends StatelessWidget {
                               compact: sizeClass == _LoginSizeClass.compact,
                               onTap: () => _continueAsGuest(context),
                             ),
-                            SizedBox(height: 20 * layoutScale),
+                            SizedBox(height: 12 * layoutScale),
                             Text(
                               'v3.0.1 • No account required',
                               style: TextStyle(
@@ -171,7 +177,8 @@ class LoginScreen extends StatelessWidget {
                               ),
                             ),
                             SizedBox(
-                              height: sizeClass.bottomSpacing * layoutScale,
+                              height:
+                                  sizeClass.bottomSpacing * layoutScale * 0.6,
                             ),
                           ],
                         ),

@@ -1,10 +1,13 @@
+import 'dart:math' as math;
+
 import '../models/turn_config.dart';
 
 class GameTuning {
+  static const int maxWavesPerLevel = 60;
   static const int columns = 7;
   static const int maxRows = 10;
   static const int initialPrefillRows = 4;
-  static const int initialBallCount = 10;
+  static const int initialBallCount = 15;
   static const double launcherY = 0.96;
   static const double minLauncherX = 0.07;
   static const double maxLauncherX = 0.93;
@@ -36,10 +39,28 @@ class GameTuning {
 
   static const TurnConfig turnConfig = TurnConfig(
     fireIntervalSeconds: 0.055,
-    ballSpeed: 0.95,
+    ballSpeed: 1.425,
     returnSlideSpeed: 1.5,
     maxBounceCorrectionsPerFrame: 2,
   );
+
+  static int wavesForLevel(int level) {
+    final normalizedLevel = level < 1 ? 1 : level;
+    final raw = 10 + (6 * math.log(normalizedLevel)).floor();
+    return raw.clamp(10, maxWavesPerLevel);
+  }
+
+  static int maxBallsForLevel(int level) {
+    final normalizedLevel = level < 1 ? 1 : level;
+    final raw = 30 + (35 * math.log(normalizedLevel)).floor();
+    return raw < 30 ? 30 : raw;
+  }
+
+  static int baseHpForWave(int level, int waveNumber) {
+    final normalizedLevel = level < 1 ? 1 : level;
+    final normalizedWave = waveNumber < 1 ? 1 : waveNumber;
+    return (normalizedLevel * 3) + normalizedWave;
+  }
 
   static double brickWidth(double boardWidth) {
     return (boardWidth * (1 - horizontalPadding * 2)) / columns;

@@ -33,6 +33,10 @@ class GameState {
     this.coinsPaidBucketsInRun = 0,
     this.highestLevelReached = 1,
     this.launchSpeedMultiplier = 1.0,
+    this.levelEntryBallCount = 10,
+    this.ballCapForLevel = 30,
+    this.overflowBallsLastClear = 0,
+    this.coinsFromOverflowLastClear = 0,
   });
 
   final GamePhase phase;
@@ -60,6 +64,10 @@ class GameState {
   final int coinsPaidBucketsInRun;
   final int highestLevelReached;
   final double launchSpeedMultiplier;
+  final int levelEntryBallCount;
+  final int ballCapForLevel;
+  final int overflowBallsLastClear;
+  final int coinsFromOverflowLastClear;
 
   GameState copyWith({
     GamePhase? phase,
@@ -88,6 +96,10 @@ class GameState {
     int? coinsPaidBucketsInRun,
     int? highestLevelReached,
     double? launchSpeedMultiplier,
+    int? levelEntryBallCount,
+    int? ballCapForLevel,
+    int? overflowBallsLastClear,
+    int? coinsFromOverflowLastClear,
   }) {
     return GameState(
       phase: phase ?? this.phase,
@@ -120,6 +132,12 @@ class GameState {
       highestLevelReached: highestLevelReached ?? this.highestLevelReached,
       launchSpeedMultiplier:
           launchSpeedMultiplier ?? this.launchSpeedMultiplier,
+      levelEntryBallCount: levelEntryBallCount ?? this.levelEntryBallCount,
+      ballCapForLevel: ballCapForLevel ?? this.ballCapForLevel,
+      overflowBallsLastClear:
+          overflowBallsLastClear ?? this.overflowBallsLastClear,
+      coinsFromOverflowLastClear:
+          coinsFromOverflowLastClear ?? this.coinsFromOverflowLastClear,
     );
   }
 }

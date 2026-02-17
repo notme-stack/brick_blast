@@ -84,6 +84,21 @@ void main() {
     expect(launched.velocity.distance, closeTo(expected, 1e-6));
   });
 
+  test('base launch speed is increased by 50%', () {
+    var state = _baseState(ballCount: 1);
+    state = engine.startAiming(state, const Offset(0.5, 0.1));
+    state = engine.releaseFire(state);
+
+    state = engine.tick(
+      state,
+      GameTuning.turnConfig.fireIntervalSeconds + 0.001,
+    );
+    final launched = state.balls.first;
+
+    expect(GameTuning.turnConfig.ballSpeed, closeTo(1.425, 1e-9));
+    expect(launched.velocity.distance, closeTo(1.425, 1e-6));
+  });
+
   test('blitz damage multiplier applies at least 2 damage', () {
     final brick = const Brick(id: 1, row: 1, col: 3, hp: 4, colorTier: 0);
     final ball = Ball(

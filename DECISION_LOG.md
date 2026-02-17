@@ -1035,3 +1035,318 @@ Implementation Details
   - `dart format ...` passed
   - `flutter analyze` passed (no issues)
   - `flutter test` passed (full suite)
+
+## Decision D-027: Post-Clear Transition Stability + Run Ball Carry + Compact UI Pass
+Date: 2026-02-16
+Status: Accepted
+
+What it is?
+- Implemented a combined stability + UI polish pass to fix post-clear progression reliability, preserve run balls when returning Home, and compact splash/login/game/result visuals.
+- Added one-shot level-clear dialog handling to prevent repeated modal scheduling and transition stalls.
+
+Why?
+- During continuous level progression, level-clear dialog could be re-scheduled repeatedly while pending state remained true, causing double-action behavior and occasional freeze perception.
+- Returning Home from an active run recreated controller state with default ball count, breaking progression continuity.
+- Several screens needed compact visual adjustments and splash loading animation needed a deterministic sweep to avoid split/stuck appearance.
+
+How it helps?
+- Eliminates duplicate level-clear modal behavior and improves next-level action reliability.
+- Preserves core run continuity (level + balls) across Home -> Play transitions.
+- Produces cleaner, less distracting game visuals and a more compact/futuristic UI footprint.
+
+Details
+- Stability fixes:
+  - Added UI guard for level-clear modal scheduling (`_isLevelClearDialogOpen`) in game screen.
+  - Added `consumeLevelClearDialog()` in controller and used explicit result-action flow.
+  - Removed strict pending guard in `advanceToNextLevel()` to allow consumed-dialog transition path.
+- Run carry fixes:
+  - Added run snapshot persistence keys for level + ball count:
+    - `brick_blast_resume_level`
+    - `brick_blast_resume_ball_count`
+    - `brick_blast_resume_valid`
+  - Added controller APIs:
+    - `saveRunSnapshot({int? levelOverride})`
+    - `clearRunSnapshot()`
+  - Hydrate resumed level + ball count in `_loadPersistedProgress()` when resume snapshot is valid.
+  - Clear snapshot on restart/retry/advance-next to avoid stale resume carry.
+- Splash fix:
+  - Replaced align-based moving fill with deterministic translated sweep segment in loading rail.
+- Login compact pass:
+  - Moved logo down by one tile height.
+  - Reduced hero (`BRICK/BLAST/SHOOTER`) footprint by ~30%.
+  - Reduced CTA/footer footprint by ~40%.
+- Game board/HUD compact pass:
+  - Removed thin blue horizontal grid lines from board background.
+  - Reduced HUD footprint (padding/metric/icon sizing) for compact futuristic top bar.
+- Result dialogs compact pass:
+  - Reduced dialog max width/insets/padding and CTA heights for both win/loss dialogs while preserving readability.
+
+Implementation Details
+- Files changed:
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/logic/game_controller.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/ui/game_screen.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/widgets/shooter_board.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/ui/result_dialog.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/screens/splash_screen.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/screens/login_screen.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/modules/brick_blast/logic/game_controller_progression_test.dart`
+- Added/updated controller methods:
+  - `consumeLevelClearDialog()`
+  - `saveRunSnapshot(...)`
+  - `clearRunSnapshot()`
+  - internal `_persistRunSnapshot(...)` and `_clearRunSnapshot()`
+- Validation outcomes:
+  - `dart format ...` passed
+  - `flutter analyze` passed (no issues)
+  - `flutter test` passed (full suite)
+
+## Decision D-028: Resume Run Score Persistence (Keep HUD Cumulative + Result Level-Only)
+Date: 2026-02-17
+Status: Accepted
+
+What it is?
+- Persist and restore cumulative run score when the player exits to Home and re-enters via Play in the same run.
+- Keep the split score model unchanged:
+  - Game HUD shows cumulative run score.
+  - Result modal shows level-only score delta.
+
+Why?
+- Home -> Play resume previously restored level and balls but could show incorrect level-score baseline behavior after async hydration.
+- This created confusion where resumed runs could calculate level-clear delta from an outdated baseline.
+
+How it helps?
+- Keeps score continuity consistent across Home -> Play resume.
+- Preserves expected UI model (cumulative in arena, level-only in result).
+- Prevents accidental coin over-award by carrying paid bucket state with resumed score.
+
+Details
+- Resume snapshot includes:
+  - `brick_blast_resume_level`
+  - `brick_blast_resume_ball_count`
+  - `brick_blast_resume_score`
+  - `brick_blast_resume_paid_buckets`
+  - `brick_blast_resume_valid`
+- Resume hydration restores level, balls, score, and paid bucket count.
+- Game-screen baseline now hydrates once from resumed score and is reset on level transitions/retry/restart to keep result delta accurate.
+- Coin award logic remains unchanged:
+  - `newBuckets = (score ~/ 100) - coinsPaidBucketsInRun`
+
+Implementation Details
+- Files changed:
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/ui/game_screen.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/modules/brick_blast/logic/game_controller_progression_test.dart`
+- Baseline behavior added in game screen:
+  - one-time hydrate baseline from resumed score (`_didHydrateInitialBaseline`)
+  - re-baseline on level-index change (`_trackedLevelForBaseline`)
+  - explicit baseline resets after retry/restart/next-level transitions
+- Test coverage update:
+  - resume snapshot now verifies restore of level, balls, score, and `coinsPaidBucketsInRun`
+- Validation outcomes:
+  - `dart format lib test` passed
+  - `flutter analyze` passed
+  - `flutter test` passed
+
+## Decision D-029: Infinite Progression Redesign (Log Waves + 60 Cap, HP=(Level*3)+Wave, Boss x2.5, Checkpoint Retry, Ball Cap Trim)
+Date: 2026-02-17
+Status: Accepted
+
+What it is?
+- Replaced linear progression with an infinite-ready logarithmic progression model.
+- Added level-scoped ball-cap logic with gain-during-level and trim-on-clear behavior.
+- Added level-entry checkpoint ball restore for retry on loss.
+
+Why?
+- Linear wave growth and uncapped balls become unbalanced and session-heavy at higher levels.
+- High-level retries were too punishing because retry reset to default ball count instead of level-entry state.
+- The new model keeps pacing bounded while preserving challenge escalation.
+
+How it helps?
+- Keeps each level duration bounded by a hard cap and avoids wave explosion.
+- Maintains swarm fantasy while preventing unbounded ball inflation.
+- Makes loss recovery fair by restoring level-entry ball count for same-level retry.
+
+Details
+- Locked formulas:
+  - `wavesTotal(level) = min(60, 10 + floor(6 * ln(level)))`
+  - `maxBalls(level) = 30 + floor(35 * ln(level))`
+  - `normalHp(level, wave) = (level * 3) + wave`
+  - `bossHp = ceil(normalHp * 2.5)`
+- Turn behavior:
+  - Keep `+1` ball per completed turn.
+  - Enforce cap only on level clear via trim (overflow recorded).
+- Loss behavior:
+  - Retry same level with level-entry checkpoint balls.
+- Coin behavior for this pass:
+  - Unchanged score-bucket payout on clear only.
+  - Overflow data recorded for future economy revisions.
+
+Implementation Details
+- Files changed:
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/data/game_tuning.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/data/level_plan_builder.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/data/brick_row_generator.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/models/level_progress.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/models/game_state.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/logic/game_controller.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/ui/game_screen.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/modules/brick_blast/logic/level_progression_test.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/modules/brick_blast/logic/game_controller_progression_test.dart`
+- New helpers introduced:
+  - `GameTuning.wavesForLevel(...)`
+  - `GameTuning.maxBallsForLevel(...)`
+  - `GameTuning.baseHpForWave(...)`
+- Checkpoint restore rule implemented:
+  - `retryCurrentLevel()` now restores `levelEntryBallCount` instead of default initial count.
+- Trim rule implemented:
+  - `advanceToNextLevel()` and level-clear Home path apply clear-time cap trim and carry only capped balls forward.
+- Validation outcomes:
+  - `dart format lib test` passed
+  - `flutter analyze` passed
+  - `flutter test` passed
+
+## Decision D-030: Start Balls 15 + Base Speed +50% + Home/Result Compact Rebalance
+Date: 2026-02-17
+Status: Accepted
+
+What it is?
+- Increased starting ball count from 10 to 15.
+- Increased base launch speed by 50% while keeping turn-based speed progression unchanged.
+- Applied a responsive compact rebalance to Home and Result screens.
+
+Why?
+- The game needed stronger early-run momentum and faster launch feel.
+- Home and Result screens were visually oversized and vertically imbalanced on mobile.
+- The UI needed compactness improvements without sacrificing text readability.
+
+How it helps?
+- Players enter levels with a larger initial swarm and higher perceived pace.
+- Existing progression logic remains stable (`+7%` turn speed growth, cap `x2`).
+- Home and Result layouts now better fit small screens with clearer hierarchy and less crowding at edges.
+
+Details
+- Gameplay constants:
+  - `initialBallCount = 15`
+  - `turnConfig.ballSpeed = 1.425` (from `0.95`)
+  - Kept:
+    - `turnSpeedGrowthMultiplier = 1.07`
+    - `maxLaunchSpeedMultiplier = 2.0`
+- Home screen compact pass:
+  - Added explicit scale lanes:
+    - `coreScale = 0.60`
+    - `statsScale = 0.60`
+    - `ctaScale = 0.60`
+  - Added readability floors for title/shooter/next-level/play text.
+  - Repositioned top stats downward and lifted CTA block upward.
+  - Reduced bottom anchoring so `NEXT LEVEL` + `PLAY` are no longer stuck to the bottom.
+- Result compact pass (win/loss):
+  - Reduced dialog width envelope and internal spacing.
+  - Reduced typography and icon sizes with readability floors.
+  - Preserved CTA tap-target safety (>=44 px via 46/50 heights).
+
+Implementation Details
+- Files changed:
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/data/game_tuning.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/ui/home_screen.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/ui/result_dialog.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/modules/brick_blast/logic/game_controller_progression_test.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/modules/brick_blast/logic/simulation_engine_test.dart`
+- Home strategy:
+  - Introduced scale controls + vertical offsets (`topInsetShift`, `ctaLift`, `centerStartOffset`) with clamp-based readability.
+- Result strategy:
+  - Width cap moved from 430 to 330, inset/padding/radii and content blocks reduced ~25% with preserved legibility.
+- Validation outcomes:
+  - `dart format lib test` passed
+  - `flutter analyze` passed
+  - `flutter test` passed
+
+## Decision D-031: Home Vertical Rebalance (Centered Brand + Lifted CTA Cluster)
+Date: 2026-02-17
+Status: Accepted
+
+What it is?
+- Rebalanced the Home screen into explicit vertical regions to center the brand cluster and lift the CTA cluster.
+- Replaced implicit bottom-heavy spacing with deterministic top/center/bottom zone layout.
+
+Why?
+- The brand block appeared slightly high and the CTA block felt stuck to the bottom.
+- The screen had a large disconnected empty middle-lower area, hurting visual rhythm.
+
+How it helps?
+- Centers logo + `BRICK BLAST` + `SHOOTER` in the visual middle.
+- Moves `NEXT LEVEL` + `PLAY` upward for better balance and modern compact feel.
+- Reduces overlap risk by using explicit flex zones and responsive margins.
+
+Details
+- Zone layout:
+  - Top zone: stats row with fixed top inset.
+  - Middle zone: centered brand cluster.
+  - Bottom zone: top-aligned CTA cluster with controlled margin.
+- Flex strategy by size class:
+  - compact: center 46 / bottom 22
+  - regular: center 48 / bottom 24
+  - tall: center 50 / bottom 26
+- CTA lift strategy:
+  - replaced transform lift with bottom-zone top alignment + `ctaTopMargin`.
+- Bottom padding reduced to keep CTA off the edge while maintaining touch-safe layout.
+
+Implementation Details
+- Files changed:
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/ui/home_screen.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/modules/brick_blast/ui/home_screen_test.dart`
+- Non-overlap safeguards:
+  - kept width clamping and readability floors from D-030
+  - explicit zone flex + top-aligned CTA in bottom zone
+  - non-scroll layout preserved
+- Added widget coverage:
+  - compact viewport visibility/overflow test
+  - regular viewport visibility stability test
+- Validation outcomes:
+  - `dart format lib test` passed
+  - `flutter analyze` passed
+  - `flutter test` passed
+
+## Decision D-032: Master Product Documentation Baseline (PRD + User Guide + Functionality Map + Future Roadmap)
+Date: 2026-02-17
+Status: Accepted
+
+What it is?
+- Added a single root-level master documentation file covering PRD, user guide, functionality map, quality gates, and future enhancement roadmap.
+- Established one consolidated baseline artifact for PM, design, and engineering alignment.
+
+Why?
+- Product context, gameplay rules, and implementation behavior were spread across decisions and code context.
+- A unified reference is needed to reduce ambiguity and speed planning/implementation handoff.
+
+How it helps?
+- Provides one source for current behavior, formulas, UX flow, and future backlog direction.
+- Improves onboarding and cross-functional collaboration.
+- Reduces rework from misunderstood scope and stale assumptions.
+
+Details
+- Created:
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/BRICK_BLAST_MASTER_DOC.md`
+- Section taxonomy included:
+  - Title/meta
+  - Product overview (PRD)
+  - Core game design
+  - Progression/balance source-of-truth formulas
+  - End-to-end user flow
+  - User guide
+  - Functionality map (module/file responsibilities)
+  - Quality/testing/release readiness
+  - Future enhancements by horizon
+  - Open decisions/deferred items
+  - Changelog/decision references
+
+Implementation Details
+- Files changed:
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/BRICK_BLAST_MASTER_DOC.md`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/DECISION_LOG.md`
+- Readability checklist applied:
+  - clear headers and concise subsections
+  - formulas in monospace form
+  - explicit distinction between implemented-now vs future roadmap
+  - file/module grounding in functionality map
+- Validation outcomes:
+  - manual review for structure completeness against requested taxonomy
+  - root placement verified for discoverability

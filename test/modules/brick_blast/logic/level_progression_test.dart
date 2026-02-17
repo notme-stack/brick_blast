@@ -12,14 +12,34 @@ void main() {
   const builder = LevelPlanBuilder();
   const progression = LevelProgressionService();
 
-  test('level planner uses formula wavesTotal = 8 + (level * 2)', () {
+  test('level planner uses logarithmic waves formula with cap', () {
     final level1 = builder.buildForLevel(1);
-    final level2 = builder.buildForLevel(2);
-    final level5 = builder.buildForLevel(5);
+    final level10 = builder.buildForLevel(10);
+    final level100 = builder.buildForLevel(100);
+    final level1000 = builder.buildForLevel(1000);
+    final levelHuge = builder.buildForLevel(1000000);
 
     expect(level1.wavesTotal, 10);
-    expect(level2.wavesTotal, 12);
-    expect(level5.wavesTotal, 18);
+    expect(level10.wavesTotal, 23);
+    expect(level100.wavesTotal, 37);
+    expect(level1000.wavesTotal, 51);
+    expect(levelHuge.wavesTotal, GameTuning.maxWavesPerLevel);
+  });
+
+  test('ball cap helper uses logarithmic formula', () {
+    expect(GameTuning.maxBallsForLevel(1), 30);
+    expect(GameTuning.maxBallsForLevel(10), 110);
+    expect(GameTuning.maxBallsForLevel(100), 191);
+    expect(GameTuning.maxBallsForLevel(1000), 271);
+  });
+
+  test('hp helper uses level*3 + wave and boss multiplier', () {
+    final normal = GameTuning.baseHpForWave(10, 23);
+    final boss = (normal * GameTuning.bossHpMultiplier).ceil();
+
+    expect(GameTuning.baseHpForWave(1, 1), 4);
+    expect(normal, 53);
+    expect(boss, 133);
   });
 
   test('wall waves are gated to level 6+ and every 5th wave', () {

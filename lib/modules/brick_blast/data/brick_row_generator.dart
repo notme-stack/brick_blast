@@ -21,9 +21,10 @@ class BrickRowGenerator {
     var bricks = <Brick>[];
     var id = startId;
 
+    final waveNumber = progress.wavesSpawned + 1;
     final normalHp = max(
       1,
-      ((progress.levelIndex - 1) * 3) + ((progress.wavesSpawned + 1) ~/ 2),
+      GameTuning.baseHpForWave(progress.levelIndex, waveNumber),
     );
     var hp = normalHp;
     if (isBossWave) {
