@@ -11,6 +11,7 @@ import 'package:brick_blast/modules/brick_blast/logic/game_controller.dart';
 import 'package:brick_blast/modules/brick_blast/logic/level_progression_service.dart';
 import 'package:brick_blast/modules/brick_blast/logic/simulation_engine.dart';
 import 'package:brick_blast/modules/brick_blast/logic/turn_resolver.dart';
+import 'package:brick_blast/modules/brick_blast/models/ball.dart';
 import 'package:brick_blast/modules/brick_blast/models/game_phase.dart';
 import 'package:brick_blast/modules/brick_blast/models/game_state.dart';
 
@@ -259,6 +260,55 @@ void main() {
     expect(controller.state.recallButtonVisible, false);
     expect(controller.state.phase, GamePhase.busy);
     expect(controller.state.isInputLocked, true);
+  });
+
+  test('triggerRecall instantly merges queued unlaunched balls to anchor', () {
+    final queuedA = Ball(
+      id: 10,
+      position: const Offset(0.2, GameTuning.launcherY),
+      previousPosition: const Offset(0.2, GameTuning.launcherY),
+      velocity: Offset.zero,
+      radius: GameTuning.ballRadius,
+      active: false,
+      grounded: false,
+      merged: false,
+      flightTimeSeconds: 0,
+    );
+    final queuedB = queuedA.copyWith(id: 11, position: const Offset(0.3, 0.9));
+    final active = queuedA.copyWith(
+      id: 12,
+      active: true,
+      position: const Offset(0.4, 0.6),
+      previousPosition: const Offset(0.4, 0.6),
+      velocity: const Offset(0.2, -0.4),
+    );
+
+    final controller = GameController(
+      storageService: LocalStorageService(),
+      analyticsService: NoopAnalyticsService(),
+      engine: _FakeSimulationEngine(
+        nextStateBuilder: (state) => state.copyWith(
+          phase: GamePhase.firing,
+          nextLauncherX: 0.42,
+          ballsToFire: 2,
+          activeBallCount: 1,
+          balls: [queuedA, queuedB, active],
+        ),
+      ),
+    );
+
+    controller.tick(1 / 60);
+    controller.triggerRecall();
+
+    final anchor = const Offset(0.42, GameTuning.launcherY);
+    final balls = controller.state.balls;
+    expect(balls[0].grounded, true);
+    expect(balls[0].merged, true);
+    expect(balls[0].position, anchor);
+    expect(balls[1].grounded, true);
+    expect(balls[1].merged, true);
+    expect(balls[1].position, anchor);
+    expect(controller.state.activeBallCount, 1);
   });
 
   test('triggerRecall is no-op when feature flag is off', () {

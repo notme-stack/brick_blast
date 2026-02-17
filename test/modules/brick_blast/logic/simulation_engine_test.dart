@@ -271,6 +271,35 @@ void main() {
     expect(state.bricks.first.hp, 20);
     expect(state.recallButtonVisible, false);
   });
+
+  test('busy deadlock guard forces end turn when no active or queued work', () {
+    final inconsistent = Ball(
+      id: 0,
+      position: const Offset(0.5, GameTuning.launcherY),
+      previousPosition: const Offset(0.5, GameTuning.launcherY),
+      velocity: Offset.zero,
+      radius: GameTuning.ballRadius,
+      active: false,
+      grounded: false,
+      merged: false,
+      flightTimeSeconds: 0,
+    );
+
+    final state = _baseState(
+      phase: GamePhase.busy,
+      balls: [inconsistent],
+      ballCount: 1,
+      ballsToFire: 0,
+      activeBallCount: 0,
+      nextLauncherX: 0.5,
+      bricks: const [],
+    );
+
+    final updated = engine.tick(state, 1 / 120);
+
+    expect(updated.phase, GamePhase.idle);
+    expect(updated.turnIndex, state.turnIndex + 1);
+  });
 }
 
 GameState _baseState({

@@ -286,9 +286,29 @@ class GameController extends ChangeNotifier {
     if (_state.nextLauncherX == null) {
       return;
     }
+    final anchorX = _state.nextLauncherX!;
+    final anchor = Offset(anchorX, GameTuning.launcherY);
+    final normalizedBalls = _state.balls.map((ball) {
+      if (ball.active || ball.grounded) {
+        return ball;
+      }
+      return ball.copyWith(
+        position: anchor,
+        previousPosition: anchor,
+        velocity: Offset.zero,
+        grounded: true,
+        merged: true,
+        flightTimeSeconds: 0,
+      );
+    }).toList();
+    final recalculatedActiveCount = normalizedBalls
+        .where((ball) => ball.active)
+        .length;
     _state = _state.copyWith(
+      balls: normalizedBalls,
       isRecalling: true,
       ballsToFire: 0,
+      activeBallCount: recalculatedActiveCount,
       phase: GamePhase.busy,
       recallButtonVisible: false,
       isInputLocked: true,

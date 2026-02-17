@@ -1555,3 +1555,41 @@ Implementation Details
   - `dart format lib test` passed
   - `flutter analyze` passed
   - `flutter test` passed
+
+## Decision D-038: Recall Freeze Fix via Queue Instant-Merge + Busy Deadlock Guard
+Date: 2026-02-17
+Status: Accepted
+
+What it is?
+- Fixed recall-related gameplay hangs by normalizing queued unlaunched balls at recall trigger and adding a safety fallback to force end-turn when no active/queued work remains.
+
+Why?
+- Recall previously set `ballsToFire=0` without resolving unlaunched balls (`!active && !grounded`), which could leave the turn stuck in `busy` forever because the strict all-merged condition could never be reached.
+
+How it helps?
+- Prevents freeze conditions when recall is used repeatedly across turns.
+- Guarantees turn completion when simulation has no remaining active/queued work.
+- Improves long-session reliability without changing recall economy/scoring behavior.
+
+Details
+- Queue instant-merge rule:
+  - On `triggerRecall()`, all unlaunched balls (`!active && !grounded`) are snapped to anchor `(nextLauncherX, launcherY)` and marked `grounded=true`, `merged=true`.
+  - `activeBallCount` is recalculated from actual active balls.
+- Deadlock guard rule in simulation tick:
+  - If `ballsToFire==0`, `activeBallCount==0`, and no balls are active, force `startEndTurn(next)` even if merge flags are inconsistent.
+  - This guard is a recovery fallback, not the primary completion path.
+
+Implementation Details
+- Files touched:
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/logic/game_controller.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/modules/brick_blast/logic/simulation_engine.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/modules/brick_blast/logic/game_controller_progression_test.dart`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/test/modules/brick_blast/logic/simulation_engine_test.dart`
+- Key code/logic changes:
+  - `triggerRecall()` now instant-merges queued unlaunched balls to anchor and recomputes active count.
+  - Added busy-phase deadlock fallback in `SimulationEngine.tick()`.
+  - Added regression tests for queue merge and fallback end-turn behavior.
+- Validation:
+  - `dart format lib test` passed
+  - `flutter analyze` passed
+  - `flutter test` passed

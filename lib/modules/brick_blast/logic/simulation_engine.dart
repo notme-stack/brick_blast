@@ -94,6 +94,15 @@ class SimulationEngine {
       if (allMerged && next.ballsToFire == 0 && next.activeBallCount == 0) {
         return startEndTurn(next);
       }
+
+      final hasActiveBalls = next.balls.any((ball) => ball.active);
+      if (!hasActiveBalls &&
+          next.ballsToFire == 0 &&
+          next.activeBallCount == 0) {
+        // Recovery guard: force turn completion if no pending/active work
+        // remains, even if a rare flag inconsistency prevents allMerged.
+        return startEndTurn(next);
+      }
     }
 
     return next;
