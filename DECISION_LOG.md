@@ -1593,3 +1593,36 @@ Implementation Details
   - `dart format lib test` passed
   - `flutter analyze` passed
   - `flutter test` passed
+
+## Decision D-039: Master Product Document Refresh to Reflect Latest Gameplay/Flag/Stability Baseline
+Date: 2026-02-18
+Status: Accepted
+
+What it is?
+- Updated `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/BRICK_BLAST_MASTER_DOC.md` to reflect all accepted changes through D-038.
+
+Why?
+- The previous master document was behind current implementation in recall behavior, feature-flag governance, restart/back behavior, and long-run stability guardrails.
+
+How it helps?
+- Keeps PM/design/engineering aligned on actual shipped behavior.
+- Reduces ambiguity during future planning, QA, and balancing decisions.
+
+Details
+- Document now includes:
+  - recall mechanic behavior and safeguards
+  - feature flag governance and active flag snapshot
+  - back gesture and checkpoint restart semantics
+  - long-session performance guard summary
+  - updated decision references through D-038
+
+Implementation Details
+- Files touched:
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/BRICK_BLAST_MASTER_DOC.md`
+  - `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/DECISION_LOG.md`
+- Key documentation updates:
+  - progression/economy/speed source-of-truth retained
+  - user flow, functionality map, and quality checklist updated to current baseline
+  - references added to `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/FEATURE_FLAGS.md`
+- Validation:
+  - manual structure/content verification against accepted decisions D-033 to D-038

@@ -1,4 +1,4 @@
-package com.example.brick_blast
+package com.rusitechstudio.brickblastshooter
 
 import io.flutter.embedding.android.FlutterActivity
 

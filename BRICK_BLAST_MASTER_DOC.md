@@ -1,91 +1,74 @@
 # Brick Blast Shooter - Master Product Document
-Version: 1.0
-Date: 2026-02-17
+Version: 1.1
+Date: 2026-02-18
 Product: Brick Blast Shooter (Flutter)
 Platform Scope: Android production path active, iOS planned
 Owner: Product + Gameplay Engineering
 Status: Living baseline document
 
 ## How To Use This Document
-- Use this as the primary reference for product intent, gameplay rules, implementation boundaries, and roadmap priorities.
-- Treat formulas and locked mechanics in this file as source-of-truth unless superseded by newer accepted decisions in `DECISION_LOG.md`.
-- Use the Functionality Map section when scoping features or debugging cross-module behavior.
+- Use this as the primary source for product intent, gameplay rules, implementation boundaries, and roadmap priorities.
+- Treat formulas and locked mechanics in this file as source-of-truth unless superseded by newer accepted entries in `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/DECISION_LOG.md`.
+- Treat feature-toggle behavior as source-of-truth in `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/FEATURE_FLAGS.md`.
 
 ## 1) Product Overview (PRD)
 
 ### Vision
-Deliver a high-retention, turn-based swarm shooter experience with short sessions, scalable progression, and strong super-app compatibility.
+Deliver a high-retention, turn-based swarm shooter with short mobile sessions, predictable progression, and super-app-compatible modular architecture.
 
 ### Core Gameplay Promise
-- Simple to understand: aim, release, clear waves.
-- Deep to master: trajectory planning, wall banking, and resource pressure.
-- Fair progression: checkpoint-style retry behavior and bounded wave lengths.
+- Easy to start: drag, release, clear rows.
+- Skill depth: pathing, wall banking, and turn-level tactical choices.
+- Fair progression: level-scoped checkpoint retry and bounded level length.
 
-### Target Audience / Personas
-- Casual arcade players who prefer short, repeatable sessions.
-- Mid-core puzzle/physics players who enjoy optimization and angle mastery.
-- Mobile-first users with limited session windows (2-8 minutes per run segment).
+### Target Audience
+- Casual arcade players (short sessions, fast loop).
+- Mid-core puzzle/physics players (trajectory optimization).
+- Mobile-first users on portrait devices.
 
 ### Product Goals
-- Maintain responsive 60 FPS gameplay on common Android devices.
-- Keep late-game levels playable without runaway duration.
-- Ensure state consistency across `home <-> game` transitions.
-- Preserve modular architecture for future super-app expansion.
+- Stable long-run gameplay (no deadlocks/hangs in extended sessions).
+- Deterministic turn resolution.
+- Production-ready responsive UI across core screens.
+- Feature-gated rollout for risky gameplay enhancements.
 
 ### Non-Goals (Current Phase)
-- PvP and synchronous multiplayer.
-- LiveOps backend and remote config.
-- Cloud identity/sync.
-- Full monetization rollout.
+- Multiplayer/PvP.
+- LiveOps backend and remote-config rollout.
+- Cloud profile and cross-device sync.
+- Full monetization integration.
 
-### Current Scope
-- Android-first production flow.
-- iOS compatibility considered in architecture, deferred in delivery.
-
-### Success Metrics
-- Gameplay Stability: crash-free sessions and no blocked progression transitions.
-- UX Quality: no overlap/overflow in key portrait layouts.
-- Retention Signals: repeat play and level advancement consistency.
-- Performance: smooth simulation cadence and deterministic turn resolution.
-
-## 2) Core Game Design (PRD)
+## 2) Core Game Design
 
 ### State Machine
-Phases used by game loop:
-- `idle`: waiting for input
-- `aiming`: drag-to-aim trajectory preview
-- `firing`: stream launch from queue
-- `busy`: physics simulation while balls active/merging
-- `endTurn`: turn resolution and spawn/shift actions
-- `gameOver`: loss state and retry/home routing
+- `idle`: waiting for user shot input
+- `aiming`: drag to set angle
+- `firing`: queued stream launch
+- `busy`: physics simulation + return/merge
+- `endTurn`: launcher move, row shift/spawn, checks
+- `gameOver`: fail state with retry/home actions
 
-### Ball Shooter Mechanics
-- Stream launch (not shotgun): one ball released on fire interval.
-- Bounce model: wall/top reflections + brick collision handling.
-- Convergence model:
-  - First grounded ball defines new launcher X.
-  - Remaining balls slide/merge to that X.
+### Shooter Loop
+- Stream launch cadence, not shotgun.
+- Ball-wall-top/brick interactions in normal physics path.
+- First floor contact sets anchor (`nextLauncherX`), later grounded balls merge to anchor.
 
-### Turn and Wave Progression
-- End turn triggers:
-  - launcher reposition,
-  - +1 ball gain,
-  - board shift down,
-  - optional new wave spawn.
-- Final wave spawn transitions to cleanup mode (no new spawns).
+### Recall Mechanic (Visual Magnet)
+- Enabled behind feature flag (`BRICK_BLAST_RECALL_ENABLED`, default ON).
+- Recall CTA appears only after anchor exists (first floor landing).
+- Fixed button position at bottom-left of arena.
+- Recall allowed only in `firing`/`busy`.
+- On recall:
+  - stop queue (`ballsToFire = 0`)
+  - queued unlaunched balls instant-merge at anchor
+  - active balls enter ghost homing return to anchor
+  - no scoring while recalling
+- Completion: immediate end-turn when no active/queued work remains.
+- Includes deadlock guard to force end-turn recovery for rare inconsistent states.
 
-### Win/Loss Conditions
-- Win (level clear): all spawned waves complete and all bricks cleared.
-- Loss (game over): brick reaches/passes danger line geometry threshold.
-
-### Level Flow and Result Flow
-- On clear: level-clear modal offers `NEXT LEVEL` or `HOME`.
-- On loss: game-over modal offers `PLAY AGAIN` (retry) or `HOME`.
-
-### Economy Rules Active
-- Score is action-based (`+10` per effective hit unit).
-- Coin payout currently uses score-bucket conversion on clear only.
-- No coin payout on loss.
+### Win/Loss
+- Win: all waves spawned for level and board cleared (cleanup complete).
+- Loss: any brick reaches/passes danger line geometry threshold.
 
 ## 3) Progression and Balance Rules (Source of Truth)
 
@@ -96,98 +79,82 @@ Phases used by game loop:
   - `maxBalls(level) = 30 + floor(35 * ln(level))`
 - Brick HP:
   - `normalHp(level, waveNumber) = (level * 3) + waveNumber`
-- Boss multiplier:
+- Boss HP:
   - `bossHp = ceil(normalHp * 2.5)`
 
-### Locked Progression Rules
-- Ball growth: `+1` per completed turn.
-- Cap policy: gain during level, trim overflow at level clear.
-- Retry checkpoint: retry same level with level-entry checkpoint balls.
+### Locked Rules
+- +1 ball per completed turn.
+- Gain during level, cap trim only on level clear.
+- Retry uses level-entry checkpoint balls on same level.
 
-### Speed System
+### Speed Rules
 - Base launch speed: `1.425`
-- Turn speed growth: `launchSpeedMultiplier *= 1.07`
-- Launch speed cap: `x2.0`
+- Per-turn launch multiplier: `* 1.07`
+- Per-level cap: `x2.0`
+- Long-run stability guard:
+  - fixed-step loop clamps incoming delta and caps catch-up steps to avoid freeze-like stalls.
 
-## 4) User Flow (End-to-End)
+## 4) End-to-End User Flow
 
-### Navigation Flow
 - `Splash -> Login -> Home -> Game -> Result`
 
 ### First-Time vs Returning
-- First-time user: splash routes to login.
-- Returning user: splash routes directly to home.
+- First-time: splash routes to login.
+- Returning: splash routes directly to home.
 
-### Home -> Play Behavior
-- Home launches next available level.
-- Resume semantics preserve run continuity via controller snapshot rules.
+### Home -> Play
+- Starts next available level.
+- Resume snapshot preserves run continuity (level/balls/score/bucket state) when valid.
+
+### Game Screen Actions
+- Back gesture opens pause modal (no direct route pop).
+- Pause actions:
+  - `Restart Level` -> checkpoint retry (same level)
+  - `Home` -> home route
+  - projectile style switching
 
 ### Result Actions
 - Level clear:
-  - `NEXT LEVEL`: advance immediately.
-  - `HOME`: unlock state retained; home shows correct next level.
+  - `NEXT LEVEL` advances immediately
+  - `HOME` unlocks next level state before navigation
 - Game over:
-  - `PLAY AGAIN`: retry same failed level using checkpoint rule.
-  - `HOME`: exit to home while preserving persistent progression/economy state.
+  - `PLAY AGAIN` retries failed level
+  - `HOME` returns home
 
-## 5) User Guide
+## 5) Economy and Scoring
 
-### Start Playing
-1. Open app and complete guest entry on login if first launch.
-2. On home screen, tap `PLAY` to start next available level.
+### Scoring
+- Action-based scoring (`+10` per effective hit unit).
+- HUD shows cumulative run score.
+- Level-clear result shows level-only score delta.
 
-### Controls
-- Touch/drag from launcher area to aim.
-- Release to fire ball stream.
-- Tap settings icon in game HUD for pause actions.
-
-### HUD Meaning (Game Screen)
-- `SCORE`: cumulative run score.
-- `WAVE x/y`: current spawned wave progress in level.
-- `LEVEL n`: current level index.
-
-### Progression Basics
-- Each completed turn grants +1 ball.
-- Bricks move downward each turn.
-- New rows spawn until wave quota is reached.
-- Final wave triggers cleanup mode; clear remaining bricks to finish level.
-
-### Score and Result Display
-- In-game HUD score: cumulative run score.
-- Level-clear result score: level-only score delta.
-
-### Coin Behavior (Current)
+### Coin System (Current)
 - `1 coin = 100 score` bucket conversion.
-- Coins are paid on level clear only.
+- Payout occurs only on level clear.
 - No payout on game over.
+- Overflow-ball conversion is recorded for future economy phase (not active payout in current release behavior).
 
-### Win/Loss Outcomes
-- Win: proceed to next level or return home.
-- Loss: retry same level or return home.
+## 6) Feature Flag Governance
 
-### Troubleshooting (Common)
-- If score appears different between game HUD and result modal:
-  - this is expected by design (cumulative vs level-only split).
-- If progression display looks stale after clear:
-  - revisit home from result action; unlock is confirmed during clear action path.
+### Source of Truth
+- `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/lib/app_shell/feature_flags.dart`
+- `/Users/saurabhjawade/Desktop/Vibe Coding Projects/brick_blast/FEATURE_FLAGS.md`
 
-## 6) Functionality Map (What Exists Today)
+### Active Flag Snapshot
+- `BRICK_BLAST_RECALL_ENABLED`
+  - default: `true`
+  - OFF behavior: recall UI/logic path disabled safely
 
-### App Shell and Routing
-- Entry/app composition:
-  - `lib/main.dart`
-  - `lib/app.dart`
-- App shell context/router:
-  - `lib/app_shell/`
-- Module entry and routes:
-  - `lib/modules/brick_blast/module_entry.dart`
+### Governance Rule
+- Every new flag must be documented in `FEATURE_FLAGS.md` and referenced in decision logs.
 
-Implemented:
-- Named-route flow for splash/login/module home/game.
-Known constraints:
-- Portrait-first UX tuning.
-Dependencies:
-- Local storage for first-time and progression gates.
+## 7) Functionality Map (Implemented)
+
+### App shell and routes
+- `lib/main.dart`
+- `lib/app.dart`
+- `lib/app_shell/app_router.dart`
+- `lib/modules/brick_blast/module_entry.dart`
 
 ### Screens
 - `lib/screens/splash_screen.dart`
@@ -196,211 +163,92 @@ Dependencies:
 - `lib/modules/brick_blast/ui/game_screen.dart`
 - `lib/modules/brick_blast/ui/result_dialog.dart`
 
-Implemented:
-- Production-themed splash/login/home/game/result stack.
-- Responsive compact sizing logic for home and result dialogs.
-Known constraints:
-- Tablet landscape is not primary optimization target.
-Dependencies:
-- Game controller state + storage keys.
+### Game internals
+- Models: `lib/modules/brick_blast/models/`
+- Engine and turn flow:
+  - `lib/modules/brick_blast/logic/simulation_engine.dart`
+  - `lib/modules/brick_blast/logic/turn_resolver.dart`
+  - `lib/modules/brick_blast/logic/game_controller.dart`
+- Progression/tuning:
+  - `lib/modules/brick_blast/data/level_plan_builder.dart`
+  - `lib/modules/brick_blast/logic/level_progression_service.dart`
+  - `lib/modules/brick_blast/data/game_tuning.dart`
+- Row generation:
+  - `lib/modules/brick_blast/data/brick_row_generator.dart`
+- Rendering:
+  - `lib/modules/brick_blast/widgets/shooter_board.dart`
 
-### Game Module Internals
+### Capabilities
+- Storage: `lib/capabilities/storage/local_storage_service.dart`
+- Analytics interface/no-op: `lib/capabilities/analytics/`
 
-#### Models
-- `lib/modules/brick_blast/models/`
-Implemented:
-- Game phase/state, level progress, launcher, ball, brick, patterns, style enums.
-Known constraints:
-- Some future-facing fields may be placeholders for economy variants.
+### Testing map
+- Logic: controller/progression/simulation/turn resolver
+- UI: home/game/result dialogs
+- App flow: splash/login/home/game routing
 
-#### Logic Engine
-- `lib/modules/brick_blast/logic/simulation_engine.dart`
-- `lib/modules/brick_blast/logic/turn_resolver.dart`
-- `lib/modules/brick_blast/logic/game_controller.dart`
+## 8) Quality, Stability, and Release Readiness
 
-Implemented:
-- Deterministic fixed-step simulation.
-- Turn resolution, convergence, spawn/shift, clear/loss handling.
-- Level clear and game over action handling.
-Known constraints:
-- Physics is custom and intentionally lightweight.
-Dependencies:
-- Tuning constants and row generator.
-
-#### Progression/Planner
-- `lib/modules/brick_blast/data/level_plan_builder.dart`
-- `lib/modules/brick_blast/logic/level_progression_service.dart`
-- `lib/modules/brick_blast/data/game_tuning.dart`
-
-Implemented:
-- Log waves with cap.
-- Pattern scheduling and cleanup phase transitions.
-- Ball cap and speed progression constants.
-Known constraints:
-- Additional progression variants deferred.
-
-#### Row Generation
-- `lib/modules/brick_blast/data/brick_row_generator.dart`
-
-Implemented:
-- Pattern-based row generation with boss rule and density controls.
-- HP derived from locked formulas.
-Known constraints:
-- Pattern pool intentionally limited for this phase.
-
-#### UI / Widgets
-- `lib/modules/brick_blast/widgets/shooter_board.dart`
-- `lib/modules/brick_blast/ui/game_screen.dart`
-- `lib/modules/brick_blast/ui/result_dialog.dart`
-
-Implemented:
-- Board render, aim styles, pause modal, result modals.
-Known constraints:
-- Additional accessibility polish remains a backlog item.
-
-### Storage and Analytics Capabilities
-- `lib/capabilities/storage/local_storage_service.dart`
-- `lib/capabilities/analytics/`
-
-Implemented:
-- Persistent keys for progression, score, coins, and resume snapshot.
-- Analytics interface with no-op implementation available.
-Known constraints:
-- No remote analytics backend integration in this phase.
-
-### Test Coverage Map
-- Logic tests:
-  - progression, controller, resolver, simulation
-- UI tests:
-  - home, game screen, result dialogs
-- App flow tests:
-  - splash/login/home/game routing
-
-Known constraints:
-- Visual pixel parity is validated manually on emulator in addition to widget tests.
-
-## 7) Quality, Testing, and Release Readiness
-
-### Standard Validation Workflow
+### Standard validation workflow
 1. `dart format lib test`
 2. `flutter analyze`
 3. `flutter test`
 
-### High-Risk Regression Scenarios
-- level-clear action sequencing (`next/home`) consistency
-- resume snapshot state coherence (`home -> play`)
-- game-over retry behavior at checkpoint
-- cap-trim application on clear
-- no dialog overlap/re-entrancy issues
+### High-risk regressions covered
+- result-dialog sequencing and action idempotency
+- home/play resume state consistency
+- checkpoint retry behavior vs full reset
+- recall interactions (queue merge + deadlock recovery)
+- long-frame catch-up stability under extended sessions
 
-### Device/Responsiveness Expectations
-- Portrait-first layout quality on compact/regular/tall phones.
-- No key element overlap in home/game/result primary screens.
-- Touch targets remain practical on compact screens.
+### Device expectations
+- Portrait-first optimized.
+- No key overlap/overflow on compact/regular/tall phone classes.
+- Touch targets preserved for primary controls.
 
-### UI Production-Readiness Checklist
-- no overflow warnings
-- no scroll-on-home for core layout
-- readable text floors enforced
-- coherent spacing hierarchy
-- action buttons clearly reachable and visible
+## 9) User Guide (Operational)
 
-## 8) Future Enhancements Backlog
+1. Launch app; login once as guest on first install.
+2. Tap `PLAY` on home to continue progression.
+3. Aim by dragging; release to fire stream.
+4. Use settings for pause actions and projectile style.
+5. Use recall (when visible) to force fast return and accelerate turn resolution.
+6. Clear all waves + cleanup bricks to complete level.
+7. On loss, use `PLAY AGAIN` to retry same level with checkpoint behavior.
 
-### Near-Term (next 1-2 passes)
+## 10) Future Enhancements
 
-1. Coin model finalization (score vs overflow vs hybrid)
-- User Value: clearer economy and reward transparency.
-- Complexity: M
-- Risk/Dependency: touches controller/state/result UX.
-- Priority: P0
+### Near-term
+1. Finalize coin economy presentation (overflow data surfacing in result UX).
+2. Add optional recall telemetry and balancing counters.
+3. Add a user-facing explicit `Reset Run` entrypoint (separate from restart-level).
 
-2. Overflow visualization on clear result
-- User Value: explains trim outcomes and reduces confusion.
-- Complexity: S
-- Risk/Dependency: depends on finalized coin policy.
-- Priority: P1
+### Mid-term
+1. Powerups/special bricks.
+2. Difficulty presets and challenge modifiers.
+3. Missions/objectives.
+4. Audio/haptics polish.
 
-3. Balancing telemetry hooks
-- User Value: faster tuning and issue diagnosis.
-- Complexity: M
-- Risk/Dependency: analytics provider integration.
-- Priority: P1
+### Long-term
+1. LiveOps/event layers.
+2. Cloud profile/sync.
+3. Competitive systems.
+4. Super-app embedding contracts.
 
-4. Additional home/game polish
-- User Value: higher visual quality and retention.
-- Complexity: M
-- Risk/Dependency: layout iteration bandwidth.
-- Priority: P1
+## 11) Open Decisions / Deferred Items
+- Final coin model policy (score-only vs overflow/hybrid presentation).
+- Overflow reward tuning if conversion economics are changed.
+- Remote-config strategy for feature flags (post local `dart-define` phase).
+- Landscape optimization priority.
 
-### Mid-Term
-
-1. Powerups and special bricks
-- User Value: deeper strategic variety.
-- Complexity: L
-- Risk/Dependency: state/physics extensions.
-- Priority: P2
-
-2. Difficulty presets
-- User Value: broader audience fit.
-- Complexity: M
-- Risk/Dependency: tuning matrix complexity.
-- Priority: P2
-
-3. Missions/objectives
-- User Value: stronger session goals and progression meaning.
-- Complexity: M
-- Risk/Dependency: economy/progression interactions.
-- Priority: P2
-
-4. Audio + haptics polish
-- User Value: stronger game feel and feedback.
-- Complexity: M
-- Risk/Dependency: platform-specific tuning.
-- Priority: P2
-
-### Long-Term
-
-1. LiveOps/events
-- User Value: long-term engagement loops.
-- Complexity: XL
-- Risk/Dependency: backend tooling.
-- Priority: P3
-
-2. Cloud profile and sync
-- User Value: cross-device continuity.
-- Complexity: L
-- Risk/Dependency: auth/backend data contracts.
-- Priority: P3
-
-3. Competitive systems (leaderboards/challenges)
-- User Value: social/competitive retention.
-- Complexity: L
-- Risk/Dependency: anti-cheat/data integrity.
-- Priority: P3
-
-4. Super-app integration hooks
-- User Value: modular expansion strategy fulfillment.
-- Complexity: L
-- Risk/Dependency: host app contracts.
-- Priority: P3
-
-## 9) Open Decisions / Deferred Items
-- Final coin economy model:
-  - score-only, overflow-only, or hybrid.
-- Overflow reward tuning values if conversion is enabled.
-- Advanced progression variants beyond current standard path.
-- Optional UX reveal of internal cap/trim behavior.
-
-## 10) Changelog and Decision References
-- Historical decisions are maintained in:
-  - `DECISION_LOG.md`
-- Key recent baseline decisions:
-  - D-029: infinite progression model + formulas + checkpoint/cap trim
-  - D-030: start balls 15 + base speed boost + compact home/result pass
-  - D-031: home vertical rebalance (center brand + lifted CTA)
+## 12) Decision References
+Recent source-of-truth decisions:
+- D-033: pause restart uses checkpoint retry
+- D-034: game back gesture opens pause modal
+- D-035: recall feature + flag governance baseline
+- D-036: recall CTA downsize + fixed-step long-run guard
+- D-037: icon-only recall tap visual (no square ink highlight)
+- D-038: recall freeze fix (queue instant-merge + deadlock fallback)
 
 ---
-
-Document Note:
-This file is intentionally living documentation. Any new product or gameplay decisions must be appended to `DECISION_LOG.md` and reflected here when they change source-of-truth behavior.
+This is a living document. Any accepted behavior change must be appended to `DECISION_LOG.md` and reflected here when it changes source-of-truth product behavior.
